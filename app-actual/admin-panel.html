@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DJM · Panel de Cartas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800;900&family=Bebas+Neue&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f0e6; --ink:#15130f; --muted:#77715f; --line:#dcd4bd; --white:#fffdf8;
+  --gold:#b5922e; --gold-light:#e8c565; --gold-deep:#6e5717;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;}
+body{
+  background:radial-gradient(ellipse 80% 50% at 50% 0%, rgba(181,146,46,.10), transparent 60%),
+    linear-gradient(175deg, #f6f3e9, #efe9d7 55%, #e9e2cc);
+  min-height:100vh;
+}
+#app{max-width:900px;margin:0 auto;padding:26px 16px 100px;}
+.header{text-align:center;margin-bottom:28px;}
+.eyebrow{font-size:10.5px;letter-spacing:3px;text-transform:uppercase;color:var(--gold-deep);font-weight:700;}
+h1{font-family:'Playfair Display',serif;font-size:clamp(24px,5vw,32px);margin:6px 0 0;font-weight:800;}
+h1 em{font-style:normal;background:linear-gradient(180deg,var(--gold-light),var(--gold) 55%,var(--gold-deep));-webkit-background-clip:text;background-clip:text;color:transparent;}
+.gold-rule{width:64px;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:14px auto 0;}
+
+.card-form{background:var(--white);border:1px solid var(--line);border-radius:6px;padding:24px;box-shadow:0 10px 30px rgba(20,17,10,.06);margin-bottom:36px;}
+.card-form h2{font-family:'Playfair Display',serif;font-size:18px;margin:0 0 18px;}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
+.field{display:flex;flex-direction:column;gap:5px;}
+.field.full{grid-column:1/-1;}
+label{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:700;}
+input[type=text],input[type=number],select{
+  padding:10px 12px;border:1px solid var(--line);border-radius:4px;font-family:'Inter';font-size:14px;background:#fff;color:var(--ink);
+}
+input[type=text]:focus,input[type=number]:focus,select:focus{outline:2px solid var(--gold-light);border-color:var(--gold);}
+.photo-row{display:flex;align-items:center;gap:16px;}
+.photo-preview{
+  width:72px;height:72px;border-radius:50%;background:#eee;border:2px solid var(--line);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;flex:none;color:var(--muted);font-size:10px;text-align:center;
+}
+.photo-preview img{width:100%;height:100%;object-fit:cover;}
+.file-btn{position:relative;overflow:hidden;}
+.file-btn input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;}
+.btn{font-family:'Inter';font-weight:700;border:none;border-radius:4px;padding:12px 20px;cursor:pointer;font-size:13.5px;letter-spacing:.6px;text-transform:uppercase;}
+.btn-gold{background:linear-gradient(180deg,var(--gold-light),var(--gold));color:#1c1600;}
+.btn-outline{background:transparent;border:1.5px solid var(--gold);color:var(--gold-deep);}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:6px;}
+.status{font-size:12.5px;margin-top:10px;text-align:right;}
+.status.ok{color:#3a7a3a;} .status.err{color:#9c2430;}
+
+.list-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.list-header h2{font-family:'Playfair Display',serif;font-size:18px;margin:0;}
+.count-pill{font-size:11.5px;color:var(--muted);}
+.gallery{display:flex;flex-wrap:wrap;gap:20px;}
+.empty-msg{color:var(--muted);font-size:13.5px;text-align:center;padding:30px 0;}
+
+/* ---- mini card, reused rarity palette ---- */
+.mcard{
+  position:relative;width:150px;height:210px;
+  clip-path:polygon(8% 0%, 92% 0%, 100% 9%, 100% 88%, 50% 100%, 0% 88%, 0% 9%);
+  padding:10px 9px 10px; font-family:'Inter',sans-serif; display:flex; flex-direction:column;
+}
+.mcard .top{display:flex;flex-direction:column;align-items:center;width:36px;}
+.mcard .rating{font-family:'Bebas Neue';font-size:24px;line-height:.85;}
+.mcard .pos{font-family:'Bebas Neue';font-size:10px;letter-spacing:.5px;margin-top:2px;}
+.mcard .crest{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;overflow:hidden;box-shadow:0 0 0 1.5px rgba(0,0,0,.25);background:#fff;}
+.mcard .crest img{width:100%;height:100%;object-fit:cover;}
+.mcard .photo{position:absolute;top:34px;right:2px;width:96px;height:110px;display:flex;align-items:flex-end;justify-content:center;}
+.mcard .photo img{width:100%;height:100%;object-fit:cover;border-radius:4px;}
+.mcard .photo svg{width:75%;height:75%;opacity:.5;}
+.mcard .name{font-family:'Bebas Neue';font-size:12.5px;letter-spacing:.5px;text-align:center;margin-top:auto;padding-top:4px;border-top:1px solid rgba(0,0,0,.22);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.mcard .ribbon{font-size:8px;letter-spacing:1.2px;text-align:center;margin-top:2px;font-weight:800;}
+.delbtn{
+  margin-top:8px;width:150px;background:transparent;border:1px solid var(--line);color:var(--muted);
+  font-size:10.5px;letter-spacing:1px;text-transform:uppercase;padding:6px;border-radius:4px;cursor:pointer;
+}
+.delbtn:hover{border-color:#9c2430;color:#9c2430;}
+.slot{display:flex;flex-direction:column;align-items:center;}
+
+.tier-plata{color:#252525;background:linear-gradient(160deg,#eef0f2,#c3c8cf 45%,#9aa1ab);border:1px solid #7b828d;}
+.tier-oro{color:#3a2900;background:linear-gradient(160deg,#f6dd8f,#d9ab3d 45%,#a6791e);border:1px solid #7a5717;}
+.tier-ororaro{color:#341f00;background:linear-gradient(160deg,#ffd65c,#e2a223 45%,#a3630b);border:1px solid #7a430a;}
+.tier-if{color:#e9def0;background:linear-gradient(155deg,#050409,#1c1030 55%,#050409);border:1px solid #6a4fae;}
+.tier-mvp{color:#f6e3c9;background:linear-gradient(155deg,#3a0d0d,#7c2811 55%,#c98a3a);border:1px solid #8a4a12;}
+.tier-toty{color:#122335;background:linear-gradient(155deg,#f3f8fc,#c3dbec 45%,#7ea3c4);border:1px solid #6d93b8;}
+.tier-shapeshifter{color:#fff;background:linear-gradient(120deg,#ff6fae,#7b5cff 40%,#38e1c6 75%,#ffd36e);border:1px solid rgba(255,255,255,.5);}
+.tier-futurestar{color:#e7fff8;background:linear-gradient(155deg,#03211d,#0b6b5a 55%,#38e6b0);border:1px solid #1f9b7f;}
+.tier-icono{color:#3a2c05;background:linear-gradient(155deg,#fffdf6,#f2e5bf 50%,#e2c887);border:2px solid var(--gold);}
+.tier-icono .name{font-family:'Playfair Display',serif;font-weight:800;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="header">
+    <div class="eyebrow">Panel interno · Don Julio de Milán</div>
+    <h1>Cartas <em>DJM</em></h1>
+    <div class="gold-rule"></div>
+  </div>
+
+  <div class="card-form">
+    <h2>Nueva carta</h2>
+    <div class="row">
+      <div class="field">
+        <label>Nombre</label>
+        <input type="text" id="fNombre" placeholder="Ej: Valenz">
+      </div>
+      <div class="field">
+        <label>Posición</label>
+        <input type="text" id="fPosicion" placeholder="Ej: MC, DEF/MED, POR">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label>Media (1–99)</label>
+        <input type="number" id="fMedia" min="1" max="99" placeholder="Ej: 82">
+      </div>
+      <div class="field">
+        <label>Tipo de carta</label>
+        <select id="fTipo">
+          <option value="auto">Automática (según media)</option>
+          <option value="if">IF · In Form</option>
+          <option value="mvp">MVP</option>
+          <option value="toty">TOTY</option>
+          <option value="shapeshifter">Shapeshifter</option>
+          <option value="futurestar">Future Star</option>
+          <option value="icono">Icono</option>
+        </select>
+      </div>
+    </div>
+    <div class="field full" style="margin-bottom:6px;">
+      <label>Foto del jugador</label>
+      <div class="photo-row">
+        <div class="photo-preview" id="fotoPreview">Sin foto</div>
+        <button type="button" class="btn btn-outline file-btn">Elegir archivo
+          <input type="file" id="fFoto" accept="image/*">
+        </button>
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-gold" id="btnGuardar">Guardar carta</button>
+    </div>
+    <div class="status" id="formStatus"></div>
+  </div>
+
+  <div class="list-header">
+    <h2>Cartas cargadas</h2>
+    <span class="count-pill" id="countPill"></span>
+  </div>
+  <div class="gallery" id="gallery">
+    <div class="empty-msg">Cargando…</div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   Pegá acá la URL de tu implementación de Apps Script
+   (Implementar > Nueva implementación > Aplicación web)
+   ========================================================= */
+const APPS_SCRIPT_URL = 'PEGA_AQUI_TU_URL_DE_APPS_SCRIPT';
+
+const SILHOUETTE = '<svg viewBox="0 0 100 110"><path d="M50 8c12 0 20 9 20 21 0 9-4 16-10 20 16 5 26 16 28 32 1 8-4 13-12 13H24c-8 0-13-5-12-13 2-16 12-27 28-32-6-4-10-11-10-20 0-12 8-21 20-21z" fill="rgba(0,0,0,.3)"/></svg>';
+
+const TIPO_LABEL = {
+  if: 'IN FORM', mvp: 'MVP', toty: 'TOTY',
+  shapeshifter: 'SHAPESHIFTER', futurestar: 'FUTURE STAR', icono: 'ICONO'
+};
+
+function tierClass(tipo, media) {
+  if (tipo && tipo !== 'auto') return 'tier-' + tipo;
+  const m = Number(media);
+  if (m <= 74) return 'tier-plata';
+  if (m <= 79) return 'tier-oro';
+  return 'tier-ororaro';
+}
+
+function tierLabel(tipo, media) {
+  if (tipo && tipo !== 'auto') return TIPO_LABEL[tipo] || '';
+  const m = Number(media);
+  if (m <= 74) return 'PLATA';
+  if (m <= 79) return 'ORO';
+  return 'ORO RARO';
+}
+
+/* ---------- foto: preview + compresión client-side ---------- */
+let fotoBase64 = null, fotoMime = null;
+
+document.getElementById('fFoto').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const img = new Image();
+    img.onload = () => {
+      const maxW = 500;
+      const scale = Math.min(1, maxW / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      fotoBase64 = dataUrl.split(',')[1];
+      fotoMime = 'image/jpeg';
+      document.getElementById('fotoPreview').innerHTML = '<img src="' + dataUrl + '">';
+    };
+    img.src = ev.target.result;
+  };
+  reader.readAsDataURL(file);
+});
+
+/* ---------- guardar carta ---------- */
+document.getElementById('btnGuardar').addEventListener('click', async () => {
+  const nombre = document.getElementById('fNombre').value.trim();
+  const posicion = document.getElementById('fPosicion').value.trim();
+  const media = document.getElementById('fMedia').value;
+  const tipo = document.getElementById('fTipo').value;
+  const statusEl = document.getElementById('formStatus');
+
+  if (!nombre || !media) {
+    statusEl.textContent = 'Completá al menos nombre y media.';
+    statusEl.className = 'status err';
+    return;
+  }
+  if (APPS_SCRIPT_URL.indexOf('PEGA_AQUI') === 0) {
+    statusEl.textContent = 'Falta configurar APPS_SCRIPT_URL en el archivo.';
+    statusEl.className = 'status err';
+    return;
+  }
+
+  const btn = document.getElementById('btnGuardar');
+  btn.disabled = true;
+  statusEl.textContent = 'Guardando…';
+  statusEl.className = 'status';
+
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'add', nombre, posicion, media, tipo,
+        fotoBase64: fotoBase64, mimeType: fotoMime
+      })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      statusEl.textContent = 'Carta guardada ✓';
+      statusEl.className = 'status ok';
+      document.getElementById('fNombre').value = '';
+      document.getElementById('fPosicion').value = '';
+      document.getElementById('fMedia').value = '';
+      document.getElementById('fTipo').value = 'auto';
+      document.getElementById('fotoPreview').innerHTML = 'Sin foto';
+      fotoBase64 = null; fotoMime = null;
+      loadCartas();
+    } else {
+      statusEl.textContent = 'Error: ' + (data.error || 'desconocido');
+      statusEl.className = 'status err';
+    }
+  } catch (err) {
+    statusEl.textContent = 'Error de conexión: ' + err.message;
+    statusEl.className = 'status err';
+  }
+  btn.disabled = false;
+});
+
+/* ---------- listar / borrar ---------- */
+async function loadCartas() {
+  const gallery = document.getElementById('gallery');
+  const countPill = document.getElementById('countPill');
+  if (APPS_SCRIPT_URL.indexOf('PEGA_AQUI') === 0) {
+    gallery.innerHTML = '<div class="empty-msg">Configurá APPS_SCRIPT_URL para ver las cartas cargadas.</div>';
+    return;
+  }
+  try {
+    const res = await fetch(APPS_SCRIPT_URL);
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'error');
+    const cartas = data.cartas || [];
+    countPill.textContent = cartas.length + (cartas.length === 1 ? ' carta' : ' cartas');
+    if (cartas.length === 0) {
+      gallery.innerHTML = '<div class="empty-msg">Todavía no hay cartas cargadas.</div>';
+      return;
+    }
+    gallery.innerHTML = '';
+    cartas.forEach(c => {
+      const cls = tierClass(c.tipo, c.media);
+      const label = tierLabel(c.tipo, c.media);
+      const photoHtml = c.fotoUrl
+        ? '<img src="' + c.fotoUrl + '">'
+        : SILHOUETTE;
+      const slot = document.createElement('div');
+      slot.className = 'slot';
+      slot.innerHTML =
+        '<div class="mcard ' + cls + '">' +
+          '<div class="crest"></div>' +
+          '<div class="top"><div class="rating">' + c.media + '</div><div class="pos">' + escapeHtml(c.posicion || '') + '</div></div>' +
+          '<div class="photo">' + photoHtml + '</div>' +
+          '<div class="name">' + escapeHtml(c.nombre) + '</div>' +
+          '<div class="ribbon">' + label + '</div>' +
+        '</div>' +
+        '<button class="delbtn" data-id="' + c.id + '">Eliminar</button>';
+      gallery.appendChild(slot);
+    });
+    document.querySelectorAll('.delbtn').forEach(b => {
+      b.addEventListener('click', () => deleteCarta(b.getAttribute('data-id')));
+    });
+  } catch (err) {
+    gallery.innerHTML = '<div class="empty-msg">Error cargando cartas: ' + err.message + '</div>';
+  }
+}
+
+async function deleteCarta(id) {
+  if (!confirm('¿Eliminar esta carta?')) return;
+  try {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'delete', id })
+    });
+    const data = await res.json();
+    if (data.ok) loadCartas();
+    else alert('Error: ' + (data.error || 'desconocido'));
+  } catch (err) {
+    alert('Error de conexión: ' + err.message);
+  }
+}
+
+function escapeHtml(str) {
+  return String(str).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+loadCartas();
+</script>
+</body>
+</html>

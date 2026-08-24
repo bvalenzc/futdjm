@@ -1,0 +1,13 @@
+# Fotos de partido sin identificar: ya se extrajeron los recortes individuales
+# a assets/jugadores/. Se dejan fuera del repo público por privacidad (incluye
+# gente sin confirmar si está de acuerdo en aparecer, y una foto de origen
+# incierto usada solo como placeholder de prueba).
+assets/jugadores_sin_identificar/
+
+# Capturas de referencia de FC27/MADFUT — son material con copyright ajeno,
+# usado solo como inspiración de diseño interna, nunca para redistribuir.
+assets/referencias/
+
+# Basura de SO
+.DS_Store
+Thumbs.db
