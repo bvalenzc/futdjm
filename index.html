@@ -156,6 +156,9 @@ header{display:flex;align-items:center;gap:12px;margin-bottom:26px;}
 .store-pack-price{font-size:12px;color:var(--gold-light);margin-top:2px;font-weight:700;}
 
 .filter-row{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
+.tab-row{display:flex;gap:8px;margin-bottom:18px;}
+.tab-btn{flex:1;padding:10px;border-radius:9px;border:1px solid rgba(232,197,101,.25);background:#171209;color:#a89a76;font-family:'Anton',sans-serif;font-size:12px;letter-spacing:1px;cursor:pointer;}
+.tab-btn.active{background:linear-gradient(180deg,var(--gold-light),var(--gold));color:#1c1600;border-color:transparent;}
 .filter-pill{padding:6px 12px;border-radius:20px;border:1px solid rgba(232,197,101,.25);background:#171209;color:#a89a76;font-size:11px;font-family:'Inter';cursor:pointer;}
 .filter-pill.active{background:linear-gradient(180deg,var(--gold-light),var(--gold));color:#1c1600;border-color:transparent;font-weight:700;}
 .myteam-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:22px 10px;}
@@ -174,6 +177,30 @@ header{display:flex;align-items:center;gap:12px;margin-bottom:26px;}
 .market-fly-0{animation:marketFly0 .78s cubic-bezier(.3,.4,.7,1) forwards;}
 .market-fly-1{animation:marketFly1 .78s cubic-bezier(.3,.4,.7,1) forwards;}
 .market-fly-2{animation:marketFly2 .78s cubic-bezier(.3,.4,.7,1) forwards;}
+
+/* ===== SBCs ===== */
+.sbc-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px;border-radius:14px;border:1px solid rgba(232,197,101,.25);background:linear-gradient(135deg,#1a1510,#0a0908);margin-bottom:14px;cursor:pointer;box-shadow:0 8px 20px rgba(0,0,0,.4);}
+.sbc-row-name{font-family:'Anton',sans-serif;font-size:19px;letter-spacing:.5px;color:#f0e6cc;line-height:1.2;}
+.sbc-row-progress{font-size:12px;color:var(--gold-light);margin-top:4px;font-weight:700;letter-spacing:.5px;}
+.sbc-card-placeholder{width:64px;aspect-ratio:0.72;flex:none;clip-path:polygon(50% 0%,88% 6%,100% 20%,100% 92%,90% 100%,10% 100%,0% 92%,0% 20%,12% 6%);background:linear-gradient(160deg,#2b2b2b,#0a0a0a);border:2px solid rgba(232,197,101,.3);display:flex;align-items:center;justify-content:center;}
+.sbc-card-placeholder span{font-family:'Anton',sans-serif;font-size:26px;color:rgba(232,197,101,.5);}
+
+.template-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border-radius:12px;border:1px solid rgba(232,197,101,.2);background:#171209;margin-bottom:10px;cursor:pointer;}
+.template-row.done{opacity:.5;cursor:default;}
+.template-row-name{font-family:'Anton',sans-serif;font-size:14px;color:#f0e6cc;}
+.template-row-reward{font-size:11px;color:#a89a76;margin-top:3px;}
+.difficulty-badge{font-size:9.5px;font-weight:800;letter-spacing:.5px;padding:4px 9px;border-radius:20px;white-space:nowrap;color:#0a0908;flex:none;}
+.diff-facil{background:#7fd88a;}
+.diff-media{background:var(--gold-light);}
+.diff-media_alta{background:#e2a223;}
+.diff-alta{background:var(--red-light);}
+
+.reqs-tab{left:auto;right:10px;flex-direction:row-reverse;}
+.reqs-drawer{padding:0 4px;}
+.reqs-drawer.open{max-height:340px;padding:20px 4px 6px;}
+.reqs-list{list-style:none;padding:0;margin:0 0 10px;display:flex;flex-direction:column;gap:6px;}
+.reqs-list li{font-size:12.5px;color:#d8cdb2;background:rgba(232,197,101,.06);border-radius:6px;padding:6px 10px;}
+.reqs-extra{font-size:11px;color:#a89a76;}
 
 .stack{position:relative;width:78px;height:96px;flex:none;}
 .mini-card{position:absolute;width:56px;aspect-ratio:0.72;clip-path:polygon(50% 0%,88% 6%,100% 20%,100% 92%,90% 100%,10% 100%,0% 92%,0% 20%,12% 6%);box-shadow:0 6px 14px rgba(0,0,0,.5);}
@@ -528,15 +555,18 @@ const MARKET_MULTIPLIERS = [10, 20, 40];
 function marketValue(rating, slotIndex){
   return sellPrice(rating) * MARKET_MULTIPLIERS[slotIndex];
 }
-// Solo cartas con media mayor a 87 y de las que tengas 3 copias o más, sin
-// contar las que ya están puestas en otro slot del Mercado.
+// Cartas de 87+ se venden de a 3 repetidas; de 84 a 86 se pueden vender
+// también, pero hace falta juntar 6 repetidas en vez de 3 para esas.
+function marketBundleSize(rating){
+  return rating >= 87 ? 3 : 6;
+}
 function marketEligiblePlayers(excludeSlotIndex){
   const col = getCollection();
   const usedInOtherSlots = (state.marketSlots||[]).filter((id,i)=> id && i!==excludeSlotIndex);
   return Object.keys(col)
-    .filter(id => col[id] >= 3 && usedInOtherSlots.indexOf(id) < 0)
+    .filter(id => usedInOtherSlots.indexOf(id) < 0)
     .map(id => byId(id))
-    .filter(p => p && p.rating > 87)
+    .filter(p => p && p.rating >= 84 && col[p.id] >= marketBundleSize(p.rating))
     .sort((a,b)=> b.rating - a.rating);
 }
 
@@ -573,6 +603,162 @@ const PACKS_CATALOG = [
 ];
 function packById(id){ return PACKS_CATALOG.find(p=>p.id===id); }
 
+// Sobres ganados como recompensa (SBCs, logros) que quedan pendientes de abrir
+// en "Mis Packs" — separados de la compra con monedas.
+const MYPACKS_KEY = 'futdjm_mypacks';
+function getMyPacks(){
+  try{ return JSON.parse(localStorage.getItem(MYPACKS_KEY)) || {}; }catch(e){ return {}; }
+}
+function saveMyPacks(mp){ localStorage.setItem(MYPACKS_KEY, JSON.stringify(mp)); }
+function addMyPacks(packId, n){
+  const mp = getMyPacks();
+  mp[packId] = (mp[packId]||0) + n;
+  saveMyPacks(mp);
+}
+function useMyPack(packId){
+  const mp = getMyPacks();
+  if(!mp[packId] || mp[packId]<=0) return false;
+  mp[packId] -= 1;
+  saveMyPacks(mp);
+  return true;
+}
+
+/* ================= SBCs ================= */
+// Cada plantilla es una lista de "requisitos" (persona + media mínima opcional
+// + posición opcional solo para acomodarla en el mini-mapa). Se completa
+// asignando a cada requisito una carta repetida propia que lo cumpla — al
+// confirmar, se consume 1 copia de cada una y se entregan las recompensas.
+const SBC_CATALOG = [
+  {
+    id:'pancho_revelacion',
+    name:'REVELACIÓN DE LA TEMPORADA',
+    rewardPacks:[{packId:'djm',count:3},{packId:'veliz',count:5}],
+    rewardCoins:100000,
+    rewardNote:'+ carta especial de Pancho (te la agregás vos desde "Añadir jugador" una vez completado)',
+    templates:[
+      {id:'pere_micky', name:'PERE MICKY', formation:'1-2-3-1', maxPlayers:2, difficulty:'Media',
+        requirements:[{person:'Valenz', minRating:90},{person:'Pancho', minRating:80}],
+        rewardPacks:[{packId:'euforia',count:10}], rewardCoins:7000},
+      {id:'peluche', name:'PELUCHE', formation:'1-3-2-1', maxPlayers:1, difficulty:'Alta',
+        requirements:[{person:'Vanti', minRating:97}],
+        rewardPacks:[{packId:'veliz',count:3}], rewardCoins:10000},
+      {id:'djm2023', name:'DJM 2023', formation:'1-2-3-1', minPlayers:7, minChemistry:70, difficulty:'Media-Alta',
+        requirements:[
+          {person:'Lucho', minRating:95, position:'DC'},
+          {person:'Valenz', position:'MI'},
+          {person:'Bañado', position:'MD'},
+          {person:'Vanti', position:'MC'},
+          {person:'Pancho', position:'DFC'},
+          {person:'Chelo', position:'DFC'},
+          {person:'Pelao Izq', position:'ARQ'},
+        ],
+        rewardPacks:[{packId:'consu',count:5}], rewardCoins:5000},
+      {id:'chupalo_rai', name:'CHUPALO RAI', formation:'1-3-2-1', maxPlayers:1, difficulty:'Fácil',
+        requirements:[{person:'Rai'}],
+        rewardPacks:[{packId:'nuende',count:1}], rewardCoins:1000},
+      {id:'cafu_lavin', name:'CAFU LAVIN', formation:'1-2-2-2', maxPlayers:2, difficulty:'Media',
+        requirements:[{person:'Pancho', minRating:89},{person:'Pancho', minRating:75}],
+        rewardPacks:[{packId:'djm',count:1}], rewardCoins:20000},
+      {id:'civil_nuende', name:'CIVIL ÑUENDE', formation:'1-2-3-1', minPlayers:7, difficulty:'Media',
+        requirements:[
+          {person:'Pancho', minRating:89},{person:'Mrillon'},{person:'Beltran'},
+          {person:'Nikolai'},{person:'Varela'},{person:'Lucho', minRating:89},{person:'Bañado'},
+        ],
+        rewardPacks:[{packId:'veliz',count:3}], rewardCoins:15000},
+    ],
+  },
+];
+function sbcById(id){ return SBC_CATALOG.find(s=>s.id===id); }
+function templateById(sbcId, templateId){
+  const sbc = sbcById(sbcId);
+  return sbc ? sbc.templates.find(t=>t.id===templateId) : null;
+}
+
+const SBC_PROGRESS_KEY = 'futdjm_sbc_progress';
+function getSbcProgress(){
+  try{ return JSON.parse(localStorage.getItem(SBC_PROGRESS_KEY)) || {}; }catch(e){ return {}; }
+}
+function saveSbcProgress(p){ localStorage.setItem(SBC_PROGRESS_KEY, JSON.stringify(p)); }
+function isTemplateDone(templateId){ return !!getSbcProgress()[templateId]; }
+function sbcCompletedCount(sbc){
+  const prog = getSbcProgress();
+  return sbc.templates.filter(t=>prog[t.id]).length;
+}
+function isSbcFullyDone(sbc){ return sbcCompletedCount(sbc) >= sbc.templates.length; }
+
+// Da un slot de layout (x,y del formation) a cada requisito de la plantilla:
+// si el requisito trae "position" y esa posición está libre en la formación,
+// se lo asigna; el resto se reparte en los slots de formación que sobren.
+function templateLayoutSlots(template){
+  const layout = FORMATIONS[template.formation].slice();
+  const used = new Array(layout.length).fill(false);
+  const positions = new Array(template.requirements.length).fill(null);
+  template.requirements.forEach((req,i)=>{
+    if(!req.position) return;
+    const idx = layout.findIndex((s,li)=> !used[li] && s.role===req.position);
+    if(idx>=0){ used[idx]=true; positions[i] = layout[idx]; }
+  });
+  let li = 0;
+  positions.forEach((pos,i)=>{
+    if(pos) return;
+    while(li<layout.length && used[li]) li++;
+    if(li<layout.length){ positions[i] = layout[li]; used[li]=true; li++; }
+    else positions[i] = {x:50,y:50};
+  });
+  return positions;
+}
+function reqLabel(req){
+  return req.person + (req.minRating ? ' +'+req.minRating : '');
+}
+function difficultySlug(d){
+  return d.toLowerCase().replace(/[áàä]/g,'a').replace(/-/g,'_');
+}
+// Solo cartas repetidas (2+ copias) que cumplan persona + media mínima del
+// requisito, dejando margen para poder usar la misma carta en dos requisitos
+// distintos de la misma plantilla si hay copias suficientes.
+function templateEligiblePlayers(template, slotIndex){
+  const req = template.requirements[slotIndex];
+  const col = getCollection();
+  const alreadyUsed = {};
+  (state.templateSlots||[]).forEach((id,i)=>{ if(id && i!==slotIndex) alreadyUsed[id] = (alreadyUsed[id]||0)+1; });
+  let candidates = POOL.filter(p=>{
+    if(p.person !== req.person) return false;
+    if(req.minRating && p.rating < req.minRating) return false;
+    const owned = col[p.id]||0;
+    if(owned < 2) return false;
+    if(owned <= (alreadyUsed[p.id]||0)) return false;
+    return true;
+  });
+  if(state.templatePickerFilter && state.templatePickerFilter!=='ALL'){
+    candidates = candidates.filter(p=>p.positions.indexOf(state.templatePickerFilter)>=0);
+  }
+  return candidates.sort((a,b)=>b.rating-a.rating);
+}
+function templateRequirementsMet(template, slots){
+  if(!slots || slots.length!==template.requirements.length) return false;
+  if(slots.some(s=>!s)) return false;
+  for(let i=0;i<template.requirements.length;i++){
+    const req = template.requirements[i];
+    const p = byId(slots[i]);
+    if(!p || p.person!==req.person) return false;
+    if(req.minRating && p.rating<req.minRating) return false;
+  }
+  const filledCount = slots.filter(Boolean).length;
+  if(template.maxPlayers && filledCount>template.maxPlayers) return false;
+  if(template.minPlayers && filledCount<template.minPlayers) return false;
+  if(template.minChemistry){
+    const layoutSlots = templateLayoutSlots(template);
+    const chem = slots.reduce((sum,id,i)=>{
+      if(!id) return sum;
+      const p = byId(id);
+      const role = layoutSlots[i] ? layoutSlots[i].role : null;
+      return sum + (role && p.positions.includes(role) ? 10 : 0);
+    }, 0);
+    if(chem<template.minChemistry) return false;
+  }
+  return true;
+}
+
 function pickPackPlayer(probs){
   const r = Math.random();
   let cum = 0, bandIdx = probs.length-1;
@@ -599,11 +785,49 @@ function openPackDraw(probs){
   players.sort((a,b)=>b.rating-a.rating);
   return players;
 }
+// Arranca la animación de apertura de un sobre — se usa tanto para los que se
+// compran en la Tienda como para los que ya se tienen guardados en Mis Packs.
+function startPackFlow(packId){
+  const pack = packById(packId);
+  state.activePackId = packId;
+  state.packDraw = openPackDraw(pack.probs);
+  state.packSpecial = state.packDraw[0].rating >= 86;
+  state.packStage = 'spinning';
+  render();
+  const spinDuration = state.packSpecial ? 1700 : 850;
+  setTimeout(()=>{
+    if(state.packSpecial){
+      state.packStage = 'buildup';
+      state.packRevealRating = 0;
+      render();
+      const target = state.packDraw[0].rating;
+      const stepTime = 45;
+      const steps = Math.ceil(1350/stepTime);
+      let i = 0;
+      const timer = setInterval(()=>{
+        i++;
+        state.packRevealRating = Math.min(target, Math.round(target*(i/steps)));
+        if(i>=steps){ clearInterval(timer); }
+        render();
+      }, stepTime);
+      setTimeout(()=>{
+        state.packStage = 'revealed-top';
+        render();
+      }, 1500);
+    } else {
+      state.packStage = 'revealed-top';
+      render();
+    }
+  }, spinDuration);
+}
 
 let state = { screen:'home', formation:null, formationChoices:[], captainId:null, captainCandidates:[], slots:[], bench:[], activeSlotId:null, activeBenchIndex:null, subsOpen:false, savedAt:null, selectedSlotId:null, selectedBenchId:null, addPlayerMsg:null, showPasswordGate:false, pwError:null, editingPlayerId:null,
   activePackId:null, packStage:null, packDraw:null, packSpecial:false, packRevealRating:0,
   myTeamFilter:'ALL', myTeamSort:'rating',
-  marketSlots:[null,null,null], activeMarketIndex:null, marketSelling:false };
+  marketSlots:[null,null,null], activeMarketIndex:null, marketSelling:false,
+  storeTab:'tienda',
+  activeSbcId:null, activeTemplateId:null, templateSlots:[], templateReqsOpen:false,
+  activeTemplateSlotIndex:null, templatePickerFilter:'ALL', sbcMsg:null };
 
 function getSlotPositions(formationKey){
   const layout = FORMATIONS[formationKey];
@@ -982,10 +1206,14 @@ function render(){
   else if(state.screen==='store') html = renderStoreScreen();
   else if(state.screen==='myteam') html = renderMyTeamScreen();
   else if(state.screen==='market') html = renderMarketScreen();
+  else if(state.screen==='sbcs') html = renderSbcListScreen();
+  else if(state.screen==='sbctemplates') html = renderSbcTemplatesScreen();
+  else if(state.screen==='sbcbuilder') html = renderTemplateBuilderScreen();
   let overlay = '';
   if(state.screen==='pitch' && state.activeSlotId) overlay = renderPicker();
   else if(state.screen==='pitch' && state.activeBenchIndex!=null) overlay = renderBenchPicker();
   else if(state.screen==='market' && state.activeMarketIndex!=null) overlay = renderMarketPicker();
+  else if(state.screen==='sbcbuilder' && state.activeTemplateSlotIndex!=null) overlay = renderTemplatePicker();
   if(state.showPasswordGate) overlay += renderPasswordGate();
   app.innerHTML = html + overlay;
   attachEvents();
@@ -1018,6 +1246,7 @@ function renderHomeScreen(){
     activeRow('ÚLTIMAS CARTAS','Todas las cartas del plantel, ordenadas por media', 'goToCards', 'VER')+
     activeRow('MI EQUIPO','Tu colección de cartas y ÑUENDE COINS', 'goToMyTeam', 'VER')+
     activeRow('MERCADO','Vendé en bloque tus repetidas de alta media', 'goToMarket', 'ENTRAR')+
+    activeRow('SBCs','Completá plantillas y desbloqueá cartas especiales', 'goToSbcs', 'ENTRAR')+
     activeRow('DRAFT GUARDADOS','Los equipos que fuiste guardando', 'goToSavedDrafts', 'VER')+
     lockedRow('ESTADÍSTICAS','Rankings y números de la temporada')+
     '<footer>FUTDJM · Fútbol 7</footer>'+
@@ -1218,21 +1447,44 @@ function renderStoreScreen(){
   if(inFlow){
     return backBtn + headerHtml('') + renderCoinBadge() + renderPackArea(state.activePackId);
   }
-  const rows = PACKS_CATALOG.filter(p=>p.id!=='free').map(p=>{
-    const affordable = getCoins() >= p.price;
-    return '<div class="store-pack">'+
-      '<div class="store-pack-visual theme-'+p.theme+'"></div>'+
-      '<div class="store-pack-info">'+
-        '<div class="store-pack-name">'+p.name+'</div>'+
-        '<div class="store-pack-price">'+p.price.toLocaleString('es-CL')+' 🪙</div>'+
-      '</div>'+
-      '<button class="save-btn" data-action="openPack" data-pack-id="'+p.id+'" '+(affordable?'':'disabled')+'>Comprar</button>'+
-    '</div>';
-  }).join('');
+
+  const tabs = '<div class="tab-row">'+
+    '<button class="tab-btn'+(state.storeTab==='tienda'?' active':'')+'" data-action="setStoreTab" data-tab="tienda">TIENDA</button>'+
+    '<button class="tab-btn'+(state.storeTab==='mispacks'?' active':'')+'" data-action="setStoreTab" data-tab="mispacks">MIS PACKS</button>'+
+  '</div>';
+
+  let body;
+  if(state.storeTab==='tienda'){
+    body = PACKS_CATALOG.filter(p=>p.id!=='free').map(p=>{
+      const affordable = getCoins() >= p.price;
+      return '<div class="store-pack">'+
+        '<div class="store-pack-visual theme-'+p.theme+'"></div>'+
+        '<div class="store-pack-info">'+
+          '<div class="store-pack-name">'+p.name+'</div>'+
+          '<div class="store-pack-price">'+p.price.toLocaleString('es-CL')+' 🪙</div>'+
+        '</div>'+
+        '<button class="save-btn" data-action="openPack" data-pack-id="'+p.id+'" '+(affordable?'':'disabled')+'>Comprar</button>'+
+      '</div>';
+    }).join('');
+  } else {
+    const mp = getMyPacks();
+    const owned = PACKS_CATALOG.filter(p=>p.id!=='free' && mp[p.id]>0);
+    body = owned.length ? owned.map(p=>{
+      return '<div class="store-pack">'+
+        '<div class="store-pack-visual theme-'+p.theme+'"></div>'+
+        '<div class="store-pack-info">'+
+          '<div class="store-pack-name">'+p.name+'</div>'+
+          '<div class="store-pack-price">Tenés '+mp[p.id]+'</div>'+
+        '</div>'+
+        '<button class="save-btn" data-action="openMyPack" data-pack-id="'+p.id+'">Abrir</button>'+
+      '</div>';
+    }).join('') : '<p class="hint">Todavía no ganaste ningún sobre — completá plantillas de SBCs para conseguir algunos.</p>';
+  }
+
   return backBtn +
-    headerHtml('Comprá sobres con tus ÑUENDE COINS') +
+    headerHtml('Comprá sobres con tus ÑUENDE COINS, o abrí los que ganaste') +
     renderCoinBadge() +
-    rows;
+    tabs + body;
 }
 
 /* ---------- MI EQUIPO (colección) ---------- */
@@ -1274,11 +1526,12 @@ function renderMarketScreen(){
     }
     const p = byId(id);
     const value = marketValue(p.rating, i);
+    const size = marketBundleSize(p.rating);
     const flyClass = state.marketSelling ? ' market-fly-'+i : '';
     let card = fcCard(p, p.positions[0], {action: state.marketSelling ? '' : 'openMarketSlot'});
     card = card.replace('data-id="'+p.id+'"', 'data-id="'+p.id+'" data-market-index="'+i+'"');
     return '<div class="market-slot-wrap'+flyClass+'">'+
-      '<div class="market-card">'+card+'<div class="dup-badge">x3</div></div>'+
+      '<div class="market-card">'+card+'<div class="dup-badge">x'+size+'</div></div>'+
       '<div class="market-value">'+value.toLocaleString('es-CL')+' 🪙 <span class="market-mult">('+MARKET_MULTIPLIERS[i]+'x)</span></div>'+
     '</div>';
   }).join('');
@@ -1287,9 +1540,9 @@ function renderMarketScreen(){
   const anyFilled = state.marketSlots.some(Boolean);
 
   return '<button class="back-btn" data-action="backToHome">‹ Inicio</button>'+
-    headerHtml('Vendé en bloque tus cartas repetidas de 88+ de media') +
+    headerHtml('Vendé en bloque tus cartas repetidas de alta media') +
     renderCoinBadge() +
-    '<p class="hint">Solo cartas que tengas repetidas 3 veces o más, con media mayor a 87. Cada slot multiplica el precio normal: 10x, 20x y 40x.</p>'+
+    '<p class="hint">Cartas de 87+ de media: se venden de a 3 repetidas. Cartas de 84 a 86: se venden de a 6 repetidas. Cada slot multiplica el precio normal: 10x, 20x y 40x.</p>'+
     '<div class="market-grid">'+slotsHtml+'</div>'+
     (anyFilled
       ? '<button class="save-btn" data-action="sellMarket" style="width:100%;margin-top:20px;" '+(state.marketSelling?'disabled':'')+'>Vender ('+totalValue.toLocaleString('es-CL')+' 🪙)</button>'
@@ -1306,6 +1559,109 @@ function renderMarketPicker(){
       '<div class="sheet-title">Elegí qué vender</div>'+
       body+
       '<button class="close-sheet" data-action="closeMarketPicker">Cancelar</button>'+
+    '</div>'+
+  '</div>';
+}
+
+/* ---------- SBCs ---------- */
+function renderSbcListScreen(){
+  const rows = SBC_CATALOG.map(sbc=>{
+    const done = sbcCompletedCount(sbc);
+    const total = sbc.templates.length;
+    return '<div class="sbc-row" data-action="goToSbcTemplates" data-sbc-id="'+sbc.id+'">'+
+      '<div class="sbc-row-info">'+
+        '<div class="sbc-row-name">'+sbc.name+'</div>'+
+        '<div class="sbc-row-progress">'+done+'/'+total+'</div>'+
+      '</div>'+
+      '<div class="sbc-card-placeholder"><span>?</span></div>'+
+    '</div>';
+  }).join('');
+  return '<button class="back-btn" data-action="backToHome">‹ Inicio</button>'+
+    headerHtml('Completá plantillas con tus cartas repetidas y desbloqueá cartas especiales') +
+    rows;
+}
+
+function renderSbcTemplatesScreen(){
+  const sbc = sbcById(state.activeSbcId);
+  const prog = getSbcProgress();
+  const totalRewardStr = sbc.rewardPacks.map(r=>r.count+'x '+packById(r.packId).name).join(' + ')+' + '+sbc.rewardCoins.toLocaleString('es-CL')+' 🪙';
+  const rows = sbc.templates.map(t=>{
+    const done = !!prog[t.id];
+    const rewardStr = t.rewardPacks.map(r=>r.count+'x '+packById(r.packId).name).join(' + ')+' + '+t.rewardCoins.toLocaleString('es-CL')+' 🪙';
+    return '<div class="template-row'+(done?' done':'')+'" '+(done?'':'data-action="goToTemplateBuilder"')+' data-sbc-id="'+sbc.id+'" data-template-id="'+t.id+'">'+
+      '<div class="template-row-info">'+
+        '<div class="template-row-name">'+t.name+(done?' ✓':'')+'</div>'+
+        '<div class="template-row-reward">'+rewardStr+'</div>'+
+      '</div>'+
+      '<div class="difficulty-badge diff-'+difficultySlug(t.difficulty)+'">'+t.difficulty+'</div>'+
+    '</div>';
+  }).join('');
+  return '<button class="back-btn" data-action="goToSbcs">‹ SBCs</button>'+
+    headerHtml(sbc.name) +
+    '<p class="hint">'+sbc.rewardNote+'</p>'+
+    '<p class="hint">Recompensa total al completar todas: '+totalRewardStr+'</p>'+
+    (state.sbcMsg ? '<p class="hint" style="color:var(--gold-light);">'+state.sbcMsg+'</p>' : '')+
+    rows;
+}
+
+function renderTemplateBuilderScreen(){
+  const template = templateById(state.activeSbcId, state.activeTemplateId);
+  const layoutSlots = templateLayoutSlots(template);
+  const slotHtml = template.requirements.map((req,i)=>{
+    const pos = layoutSlots[i];
+    const filledId = state.templateSlots[i];
+    if(!filledId){
+      return '<div class="pslot" style="left:'+pos.x+'%;top:'+pos.y+'%;">'+
+        '<div class="pslot-empty" data-action="openTemplateSlot" data-slot-index="'+i+'">'+
+          '<div class="plus">+</div><div class="role" style="font-size:6.5px;">'+reqLabel(req)+'</div>'+
+        '</div>'+
+      '</div>';
+    }
+    const p = byId(filledId);
+    let card = fcCard(p, pos.role||p.positions[0], {action:'openTemplateSlot'});
+    card = card.replace('data-id="'+p.id+'"', 'data-id="'+p.id+'" data-slot-index="'+i+'"');
+    return '<div class="pslot" style="left:'+pos.x+'%;top:'+pos.y+'%;">'+card+'</div>';
+  }).join('');
+
+  const met = templateRequirementsMet(template, state.templateSlots);
+  const reqLines = template.requirements.map(req=>'<li>'+reqLabel(req)+(req.position?' — '+req.position:'')+'</li>').join('');
+  const extra = [];
+  if(template.minPlayers) extra.push('Mínimo '+template.minPlayers+' jugadores');
+  if(template.maxPlayers) extra.push('Máximo '+template.maxPlayers+' jugadores');
+  if(template.minChemistry) extra.push(template.minChemistry+' de química');
+  extra.push('Dificultad: '+template.difficulty);
+
+  return '<button class="back-btn" data-action="goToSbcTemplates" data-sbc-id="'+state.activeSbcId+'">‹ Volver</button>'+
+    headerHtml(template.name) +
+    '<div class="pitch">'+
+      '<div class="pitch-surface"></div>'+
+      slotHtml+
+      '<div class="subs-tab reqs-tab '+(state.templateReqsOpen?'open':'')+'" data-action="toggleTemplateReqs"><span class="arrow">▾</span> REQUISITOS</div>'+
+    '</div>'+
+    '<div class="subs-drawer reqs-drawer '+(state.templateReqsOpen?'open':'')+'">'+
+      '<ul class="reqs-list">'+reqLines+'</ul>'+
+      '<div class="reqs-extra">'+extra.join(' · ')+'</div>'+
+    '</div>'+
+    '<button class="save-btn" data-action="submitTemplate" style="width:100%;margin-top:16px;" '+(met?'':'disabled')+'>Completar plantilla</button>';
+}
+
+function renderTemplatePicker(){
+  const template = templateById(state.activeSbcId, state.activeTemplateId);
+  const candidates = templateEligiblePlayers(template, state.activeTemplateSlotIndex);
+  const filterPills = ['ALL'].concat(POSITION_CODES).map(code=>{
+    const active = state.templatePickerFilter===code ? ' active' : '';
+    return '<button class="filter-pill'+active+'" data-action="setTemplateFilter" data-code="'+code+'">'+(code==='ALL'?'Todas':code)+'</button>';
+  }).join('');
+  const cards = candidates.map(p=>'<div class="card-wrap">'+fcCard(p, p.positions[0], {action:'assignTemplateSlot'})+'</div>').join('');
+  const body = candidates.length
+    ? '<div class="opt-row" style="flex-wrap:wrap;">'+cards+'</div>'
+    : '<p class="hint">No tenés ninguna carta repetida que cumpla este requisito.</p>';
+  return '<div class="overlay" data-action="closeTemplatePickerBg">'+
+    '<div class="sheet" onclick="event.stopPropagation()">'+
+      '<div class="sheet-title">Elegí para: '+reqLabel(template.requirements[state.activeTemplateSlotIndex])+'</div>'+
+      '<div class="filter-row" style="justify-content:center;">'+filterPills+'</div>'+
+      body+
+      '<button class="close-sheet" data-action="closeTemplatePicker">Cancelar</button>'+
     '</div>'+
   '</div>';
 }
@@ -1750,8 +2106,9 @@ const handlers = {
     render();
   },
   goToPacks(){ state.screen='packs'; state.activePackId=null; state.packStage=null; state.packDraw=null; render(); },
-  goToStore(){ state.screen='store'; state.activePackId=null; state.packStage=null; state.packDraw=null; render(); },
+  goToStore(){ state.screen='store'; state.storeTab='tienda'; state.activePackId=null; state.packStage=null; state.packDraw=null; render(); },
   goToMyTeam(){ state.screen='myteam'; render(); },
+  setStoreTab(el){ state.storeTab = el.getAttribute('data-tab'); render(); },
   openPack(el){
     const packId = el.getAttribute('data-pack-id');
     const pack = packById(packId);
@@ -1762,36 +2119,15 @@ const handlers = {
       }
       addCoins(-pack.price);
     }
-    state.activePackId = packId;
-    state.packDraw = openPackDraw(pack.probs);
-    state.packSpecial = state.packDraw[0].rating >= 86;
-    state.packStage = 'spinning';
-    render();
-    const spinDuration = state.packSpecial ? 1700 : 850;
-    setTimeout(()=>{
-      if(state.packSpecial){
-        state.packStage = 'buildup';
-        state.packRevealRating = 0;
-        render();
-        const target = state.packDraw[0].rating;
-        const stepTime = 45;
-        const steps = Math.ceil(1350/stepTime);
-        let i = 0;
-        const timer = setInterval(()=>{
-          i++;
-          state.packRevealRating = Math.min(target, Math.round(target*(i/steps)));
-          if(i>=steps){ clearInterval(timer); }
-          render();
-        }, stepTime);
-        setTimeout(()=>{
-          state.packStage = 'revealed-top';
-          render();
-        }, 1500);
-      } else {
-        state.packStage = 'revealed-top';
-        render();
-      }
-    }, spinDuration);
+    startPackFlow(packId);
+  },
+  openMyPack(el){
+    const packId = el.getAttribute('data-pack-id');
+    if(!useMyPack(packId)){
+      window.alert('No te queda ningún sobre de este tipo.');
+      return;
+    }
+    startPackFlow(packId);
   },
   continuePack(){ state.packStage = 'revealed-all'; render(); },
   exitPack(){
@@ -1823,7 +2159,7 @@ const handlers = {
       if(!id) return;
       const p = byId(id);
       total += marketValue(p.rating, i);
-      col[id] = Math.max(0, (col[id]||0) - 3);
+      col[id] = Math.max(0, (col[id]||0) - marketBundleSize(p.rating));
     });
     saveCollection(col);
     addCoins(total);
@@ -1834,6 +2170,63 @@ const handlers = {
       state.marketSelling = false;
       render();
     }, 780);
+  },
+  goToSbcs(){ state.screen='sbcs'; state.sbcMsg=null; render(); },
+  goToSbcTemplates(el){
+    state.activeSbcId = el.getAttribute('data-sbc-id');
+    state.screen = 'sbctemplates';
+    render();
+  },
+  goToTemplateBuilder(el){
+    state.activeSbcId = el.getAttribute('data-sbc-id');
+    state.activeTemplateId = el.getAttribute('data-template-id');
+    const template = templateById(state.activeSbcId, state.activeTemplateId);
+    state.templateSlots = new Array(template.requirements.length).fill(null);
+    state.templateReqsOpen = false;
+    state.activeTemplateSlotIndex = null;
+    state.screen = 'sbcbuilder';
+    render();
+  },
+  openTemplateSlot(el){
+    state.activeTemplateSlotIndex = parseInt(el.getAttribute('data-slot-index'), 10);
+    state.templatePickerFilter = 'ALL';
+    render();
+  },
+  assignTemplateSlot(el){
+    const id = el.getAttribute('data-id');
+    state.templateSlots[state.activeTemplateSlotIndex] = id;
+    state.activeTemplateSlotIndex = null;
+    render();
+  },
+  setTemplateFilter(el){ state.templatePickerFilter = el.getAttribute('data-code'); render(); },
+  closeTemplatePicker(){ state.activeTemplateSlotIndex = null; render(); },
+  closeTemplatePickerBg(){ state.activeTemplateSlotIndex = null; render(); },
+  toggleTemplateReqs(){ state.templateReqsOpen = !state.templateReqsOpen; render(); },
+  submitTemplate(){
+    const template = templateById(state.activeSbcId, state.activeTemplateId);
+    if(!templateRequirementsMet(template, state.templateSlots)) return;
+    const col = getCollection();
+    state.templateSlots.forEach(id=>{ if(id) col[id] = Math.max(0, (col[id]||0)-1); });
+    saveCollection(col);
+    template.rewardPacks.forEach(r=> addMyPacks(r.packId, r.count));
+    addCoins(template.rewardCoins);
+    const prog = getSbcProgress();
+    prog[template.id] = true;
+    saveSbcProgress(prog);
+    let msg = '¡Plantilla "'+template.name+'" completada! +'+template.rewardCoins.toLocaleString('es-CL')+' 🪙 y sobres nuevos en Mis Packs.';
+    const sbc = sbcById(state.activeSbcId);
+    if(isSbcFullyDone(sbc) && !prog['_done_'+sbc.id]){
+      sbc.rewardPacks.forEach(r=> addMyPacks(r.packId, r.count));
+      addCoins(sbc.rewardCoins);
+      prog['_done_'+sbc.id] = true;
+      saveSbcProgress(prog);
+      msg += ' ¡Y completaste todo "'+sbc.name+'"! +'+sbc.rewardCoins.toLocaleString('es-CL')+' 🪙 extra — '+sbc.rewardNote;
+    }
+    state.sbcMsg = msg;
+    state.screen = 'sbctemplates';
+    state.templateSlots = [];
+    state.activeTemplateId = null;
+    render();
   }
 };
 
