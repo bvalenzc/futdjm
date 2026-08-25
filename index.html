@@ -1387,6 +1387,8 @@ function renderAddPlayerScreen(){
     '<div class="form-field"><label class="chk-row" style="justify-content:flex-start;gap:8px;"><input type="checkbox" id="npPacks" checked> PACKS — puede salir en sobres</label></div>'+
     '<button class="save-btn" data-action="submitPlayer" style="width:100%;">Guardar jugador</button>'+
     '<button class="admin-link-btn" data-action="goToEditList" type="button">Editar jugadores existentes</button>'+
+    '<button class="danger-btn" data-action="wipeCollection" type="button" style="margin-top:10px;">🗑 Vaciar mi colección (Mi Equipo)</button>'+
+    '<div class="hint" style="margin-top:4px;">Borra todas las copias de cartas que tenés guardadas. Tus ÑUENDE COINS y las cartas que creaste (siguen existiendo en el plantel) NO se tocan.</div>'+
     (state.addPlayerMsg ? '<p class="hint" style="color:var(--gold-light);margin-top:12px;">'+state.addPlayerMsg+'</p>' : '');
 }
 
@@ -1969,6 +1971,12 @@ const handlers = {
   goToAddPlayer(){ state.screen='addplayer'; state.addPlayerMsg=null; pendingPhotoData=null; render(); },
   goToCards(){ state.screen='cards'; render(); },
   goToEditList(){ state.screen='editlist'; state.addPlayerMsg=null; render(); },
+  wipeCollection(){
+    if(!window.confirm('¿Seguro? Se van a borrar TODAS las copias de cartas de tu colección (Mi Equipo). Tus ÑUENDE COINS y las cartas que creaste van a quedar intactas. Esto no se puede deshacer.')) return;
+    localStorage.removeItem(COLLECTION_KEY);
+    state.addPlayerMsg = 'Colección vaciada. Tus monedas y las cartas creadas se mantuvieron.';
+    render();
+  },
   goBackToAddPlayer(){ state.screen='addplayer'; render(); },
   editPlayer(el){
     state.editingPlayerId = el.getAttribute('data-id');
