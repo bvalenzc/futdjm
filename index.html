@@ -202,6 +202,16 @@ header{display:flex;align-items:center;gap:12px;margin-bottom:26px;}
 .reqs-list{list-style:none;padding:0;margin:0 0 10px;display:flex;flex-direction:column;gap:6px;}
 .reqs-list li{font-size:12.5px;color:#d8cdb2;background:rgba(232,197,101,.06);border-radius:6px;padding:6px 10px;}
 .reqs-extra{font-size:11px;color:#a89a76;}
+.claim-btn{box-shadow:0 0 24px rgba(232,197,101,.5);}
+
+.sbc-claim-overlay{position:fixed;inset:0;z-index:70;cursor:pointer;overflow-y:auto;
+  background:radial-gradient(70% 60% at 50% 32%, rgba(50,38,10,.65), #000 82%);
+  display:block;padding:32px 16px;}
+.sbc-claim-content{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;gap:14px;min-height:calc(100vh - 64px);justify-content:center;margin:0 auto;text-align:center;}
+.sbc-claim-title{font-family:'Anton',sans-serif;font-size:24px;line-height:1.15;letter-spacing:1px;color:var(--gold-light);text-shadow:0 0 24px rgba(232,197,101,.7);}
+.sbc-claim-card{transform:scale(1.2);margin:22px 0;}
+.sbc-claim-name{font-family:'Playfair Display',serif;font-weight:700;font-size:16px;color:#f0e6cc;margin-top:-4px;}
+.sbc-claim-rewards{font-family:'Anton',sans-serif;font-size:15px;color:#fff;letter-spacing:.5px;}
 
 .stack{position:relative;width:78px;height:96px;flex:none;}
 .mini-card{position:absolute;width:56px;aspect-ratio:0.72;clip-path:polygon(50% 0%,88% 6%,100% 20%,100% 92%,90% 100%,10% 100%,0% 92%,0% 20%,12% 6%);box-shadow:0 6px 14px rgba(0,0,0,.5);}
@@ -721,6 +731,12 @@ function sbcCompletedCount(sbc){
   return sbc.templates.filter(t=>prog[t.id]).length;
 }
 function isSbcFullyDone(sbc){ return sbcCompletedCount(sbc) >= sbc.templates.length; }
+// "_done_" es el flag viejo de una versión anterior que entregaba el bono
+// automático — se trata como ya reclamado para no volver a entregarlo.
+function isSbcClaimed(sbc){
+  const prog = getSbcProgress();
+  return !!(prog['_claimed_'+sbc.id] || prog['_done_'+sbc.id]);
+}
 
 // Da un slot de layout (x,y del formation) a cada requisito de la plantilla:
 // si el requisito trae "position" y esa posición está libre en la formación,
@@ -864,7 +880,8 @@ let state = { screen:'home', formation:null, formationChoices:[], captainId:null
   marketSlots:[null,null,null], activeMarketIndex:null, marketSelling:false,
   storeTab:'tienda',
   activeSbcId:null, activeTemplateId:null, templateSlots:[], templateReqsOpen:false,
-  activeTemplateSlotIndex:null, templatePickerFilter:'ALL', sbcMsg:null };
+  activeTemplateSlotIndex:null, templatePickerFilter:'ALL', sbcMsg:null,
+  claimingSbcId:null, sbcClaimStage:null };
 
 function getSlotPositions(formationKey){
   const layout = FORMATIONS[formationKey];
@@ -1255,6 +1272,7 @@ function render(){
   else if(state.screen==='market' && state.activeMarketIndex!=null) overlay = renderMarketPicker();
   else if(state.screen==='sbcbuilder' && state.activeTemplateSlotIndex!=null) overlay = renderTemplatePicker();
   if(state.showPasswordGate) overlay += renderPasswordGate();
+  if(state.sbcClaimStage) overlay += renderSbcClaimCinematic();
   app.innerHTML = html + overlay;
   attachEvents();
 }
@@ -1645,11 +1663,19 @@ function renderSbcTemplatesScreen(){
       '<div class="difficulty-badge diff-'+difficultySlug(t.difficulty)+'">'+t.difficulty+'</div>'+
     '</div>';
   }).join('');
+  const fullyDone = isSbcFullyDone(sbc);
+  const claimed = isSbcClaimed(sbc);
+  const claimBtn = fullyDone
+    ? (claimed
+      ? '<p class="hint" style="color:var(--gold-light);">✓ Recompensa ya reclamada</p>'
+      : '<button class="save-btn claim-btn" data-action="claimSbcReward" data-sbc-id="'+sbc.id+'" style="width:100%;margin:16px 0;">🏆 Reclamar recompensa</button>')
+    : '';
   return '<button class="back-btn" data-action="goToSbcs">‹ SBCs</button>'+
     headerHtml(sbc.name) +
     '<p class="hint">'+sbc.rewardNote+'</p>'+
     '<p class="hint">Recompensa total al completar todas: '+totalRewardStr+'</p>'+
     (state.sbcMsg ? '<p class="hint" style="color:var(--gold-light);">'+state.sbcMsg+'</p>' : '')+
+    claimBtn+
     rows;
 }
 
@@ -1711,6 +1737,29 @@ function renderTemplatePicker(){
       '<div class="filter-row" style="justify-content:center;">'+filterPills+'</div>'+
       body+
       '<button class="close-sheet" data-action="closeTemplatePicker">Cancelar</button>'+
+    '</div>'+
+  '</div>';
+}
+
+/* ---------- CINEMÁTICA DE RECOMPENSA DE SBC ---------- */
+function renderSbcClaimCinematic(){
+  const sbc = sbcById(state.claimingSbcId);
+  if(!sbc) return '';
+  const cardId = getSbcRewardCards()[sbc.id];
+  const card = cardId ? byId(cardId) : null;
+  const packsText = sbc.rewardPacks.map(r=>r.count+'x '+packById(r.packId).name).join(' + ');
+  const confetti = renderConfetti(card ? card.tier : 'balondeoro');
+  const cardHtml = card
+    ? '<div class="card-wrap sbc-claim-card reveal-pop">'+fcCard(card, card.positions[0], {action:''})+'</div>'
+    : '<p class="hint">(Todavía no cargaste la carta especial de este SBC desde "Añadir jugador")</p>';
+  return '<div class="sbc-claim-overlay" data-action="exitSbcClaim">'+
+    confetti+
+    '<div class="sbc-claim-content">'+
+      '<div class="sbc-claim-title">¡'+sbc.name+'<br>COMPLETO!</div>'+
+      cardHtml+
+      (card ? '<div class="sbc-claim-name">'+card.name+'</div>' : '')+
+      '<div class="sbc-claim-rewards">'+packsText+' · '+sbc.rewardCoins.toLocaleString('es-CL')+' 🪙</div>'+
+      '<p class="hint">Tocá la pantalla para continuar</p>'+
     '</div>'+
   '</div>';
 }
@@ -2270,19 +2319,30 @@ const handlers = {
     const prog = getSbcProgress();
     prog[template.id] = true;
     saveSbcProgress(prog);
-    let msg = '¡Plantilla "'+template.name+'" completada! +'+template.rewardCoins.toLocaleString('es-CL')+' 🪙 y sobres nuevos en Mis Packs.';
-    const sbc = sbcById(state.activeSbcId);
-    if(isSbcFullyDone(sbc) && !prog['_done_'+sbc.id]){
-      sbc.rewardPacks.forEach(r=> addMyPacks(r.packId, r.count));
-      addCoins(sbc.rewardCoins);
-      prog['_done_'+sbc.id] = true;
-      saveSbcProgress(prog);
-      msg += ' ¡Y completaste todo "'+sbc.name+'"! +'+sbc.rewardCoins.toLocaleString('es-CL')+' 🪙 extra — '+sbc.rewardNote;
-    }
-    state.sbcMsg = msg;
+    state.sbcMsg = '¡Plantilla "'+template.name+'" completada! +'+template.rewardCoins.toLocaleString('es-CL')+' 🪙 y sobres nuevos en Mis Packs.';
     state.screen = 'sbctemplates';
     state.templateSlots = [];
     state.activeTemplateId = null;
+    render();
+  },
+  claimSbcReward(el){
+    const sbcId = el.getAttribute('data-sbc-id');
+    const sbc = sbcById(sbcId);
+    if(!isSbcFullyDone(sbc) || isSbcClaimed(sbc)) return;
+    sbc.rewardPacks.forEach(r=> addMyPacks(r.packId, r.count));
+    addCoins(sbc.rewardCoins);
+    const cardId = getSbcRewardCards()[sbc.id];
+    if(cardId) addToCollection(cardId);
+    const prog = getSbcProgress();
+    prog['_claimed_'+sbc.id] = true;
+    saveSbcProgress(prog);
+    state.claimingSbcId = sbcId;
+    state.sbcClaimStage = 'revealing';
+    render();
+  },
+  exitSbcClaim(){
+    state.claimingSbcId = null;
+    state.sbcClaimStage = null;
     render();
   }
 };
