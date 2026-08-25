@@ -249,6 +249,7 @@ footer{margin-top:auto;padding-top:22px;text-align:center;font-size:9.5px;letter
 
 /* ===== FC CARD (shared) ===== */
 .fc-outer{width:96px;aspect-ratio:0.72;padding:3px;position:relative;cursor:pointer;background:linear-gradient(160deg,#3a3427,#151109 75%);transition:transform .16s cubic-bezier(.2,.8,.2,1), filter .16s ease;filter:drop-shadow(0 6px 12px rgba(0,0,0,.45));}
+.fc-outer.tier-flashbacks{background:linear-gradient(160deg,#c9a8ff 0%,#0a0a12 10%,#7fd9f0 18%,#0a0a12 26%,#1a1440 100%);}
 .fc-outer:active{transform:scale(.96);}
 .fc-outer.selected{transform:translateY(-6px) scale(1.04);filter:drop-shadow(0 0 0 2px var(--gold-light)) drop-shadow(0 8px 14px rgba(0,0,0,.5));}
 .fc-outer.swap-target{filter:drop-shadow(0 0 0 2px rgba(232,197,101,.5));}
@@ -311,6 +312,10 @@ footer{margin-top:auto;padding-top:22px;text-align:center;font-size:9.5px;letter
   #0a0a0a 45%, #0a0a0a 55%,
   #223a6b 57%, #223a6b 100%);color:#e8e0d0;}
 .tier-sbcnominated .fc-name{color:#e8e0d0;}
+.fc-inner.tier-flashbacks{background:linear-gradient(170deg,
+  #05040f 0%, #150f38 16%, #2a2270 32%, #3f6bc9 46%,
+  #7fe0f0 58%, #6a4fc9 70%, #241a52 86%, #0a0e28 100%);color:#eef2ff;}
+.tier-flashbacks .fc-name{color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.5);}
 
 /* ===== PITCH SCREEN ===== */
 .stat-bar{display:flex;gap:10px;margin-bottom:16px;}
@@ -978,7 +983,7 @@ function fcCard(p, role, opts){
   opts = opts || {};
   const badgeList = p.positions.filter(pos=>pos!==role);
   const badge = badgeList.length ? '<div class="pos-badge">'+badgeList.join('<br>')+'</div>' : '';
-  return '<div class="fc-outer" data-action="'+(opts.action||'')+'" data-id="'+p.id+'">'+
+  return '<div class="fc-outer tier-'+p.tier+'" data-action="'+(opts.action||'')+'" data-id="'+p.id+'">'+
     '<div class="fc-inner tier-'+p.tier+'">'+
       '<div class="fc-rating">'+p.rating+'</div>'+
       '<div class="fc-photo"><img src="'+(p.photo||PHOTO_DATA)+'"></div>'+
@@ -1033,11 +1038,12 @@ const TIER_GRADIENT_STOPS = {
   tots:['#073540','#1c93ab','#7fe0d8','#e8c565'], balondeoro:['#050608','#0e2c52','#050608','#b5922e','#e8c565'],
   sbc:['#c4202f','#0a0a0a','#e8c565','#0a0a0a','#1c3f9a'],
   sbcnominated:['#6e242c','#0a0a0a','#0a0a0a','#223a6b'],
+  flashbacks:['#05040f','#2a2270','#3f6bc9','#7fe0f0','#6a4fc9','#0a0e28'],
 };
 const TIER_TEXT_COLOR = {
   plata:'#141619', oro:'#241300', ororaro:'#241300', icono:'#2c2005', tots:'#052229',
   if:'#ffffff', mvp:'#ffffff', shapeshifter:'#ffffff', futurestar:'#ffffff', parche:'#ffffff', 'parche-estrella':'#ffffff', balondeoro:'#ffffff',
-  sbc:'#ffffff', sbcnominated:'#e8e0d0'
+  sbc:'#ffffff', sbcnominated:'#e8e0d0', flashbacks:'#eef2ff'
 };
 function tierGradient(ctx, x0,y0,x1,y1, tier){
   const stops = TIER_GRADIENT_STOPS[tier] || TIER_GRADIENT_STOPS.oro;
@@ -1346,6 +1352,7 @@ const TIER_OPTIONS = [
   {value:'balondeoro', label:'Balón de Oro'},
   {value:'sbc', label:'SBC'},
   {value:'sbcnominated', label:'SBC Nominated'},
+  {value:'flashbacks', label:'Flashbacks'},
 ];
 function tierFromRating(rating){
   if(rating>=80) return 'ororaro';
@@ -1426,7 +1433,7 @@ function renderCoinBadge(){
   return '<div class="coin-badge"><span class="coin-icon"><img src="'+CREST_DATA+'"></span>'+getCoins().toLocaleString('es-CL')+' ÑUENDE COINS</div>';
 }
 function renderConfetti(tier){
-  const colors = {plata:'#c3c8cf', oro:'#e8c565', ororaro:'#e2a223', if:'#9c7fe0', mvp:'#ff8f4a', shapeshifter:'#7b5cff', icono:'#fffef9', parche:'#cf7982', 'parche-estrella':'#e8c565', tots:'#4fd3e8', balondeoro:'#3a6bb0', sbc:'#c4202f', sbcnominated:'#223a6b'};
+  const colors = {plata:'#c3c8cf', oro:'#e8c565', ororaro:'#e2a223', if:'#9c7fe0', mvp:'#ff8f4a', shapeshifter:'#7b5cff', icono:'#fffef9', parche:'#cf7982', 'parche-estrella':'#e8c565', tots:'#4fd3e8', balondeoro:'#3a6bb0', sbc:'#c4202f', sbcnominated:'#223a6b', flashbacks:'#7fe0f0'};
   const c = colors[tier] || '#e8c565';
   let pieces = '';
   for(let i=0;i<28;i++){
