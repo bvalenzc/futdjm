@@ -162,6 +162,19 @@ header{display:flex;align-items:center;gap:12px;margin-bottom:26px;}
 .myteam-card{position:relative;display:flex;flex-direction:column;align-items:center;gap:8px;}
 .dup-badge{position:absolute;top:-6px;right:14px;background:linear-gradient(160deg,var(--gold-light),var(--gold));color:#1c1600;font-family:'Anton',sans-serif;font-size:11px;padding:2px 7px;border-radius:10px;box-shadow:0 2px 6px rgba(0,0,0,.4);z-index:7;}
 
+/* ===== MERCADO ===== */
+.market-grid{display:flex;justify-content:center;gap:18px;margin:22px 0 8px;flex-wrap:wrap;}
+.market-slot-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;}
+.market-card{position:relative;}
+.market-value{font-family:'Anton',sans-serif;font-size:12.5px;color:var(--gold-light);text-align:center;letter-spacing:.5px;}
+.market-mult{color:#a89a76;font-size:10.5px;}
+@keyframes marketFly0{ to{ transform:translate(-170px,-260px) rotate(-45deg) scale(.25); opacity:0; } }
+@keyframes marketFly1{ to{ transform:translate(0,-320px) rotate(8deg) scale(.25); opacity:0; } }
+@keyframes marketFly2{ to{ transform:translate(170px,-260px) rotate(45deg) scale(.25); opacity:0; } }
+.market-fly-0{animation:marketFly0 .78s cubic-bezier(.3,.4,.7,1) forwards;}
+.market-fly-1{animation:marketFly1 .78s cubic-bezier(.3,.4,.7,1) forwards;}
+.market-fly-2{animation:marketFly2 .78s cubic-bezier(.3,.4,.7,1) forwards;}
+
 .stack{position:relative;width:78px;height:96px;flex:none;}
 .mini-card{position:absolute;width:56px;aspect-ratio:0.72;clip-path:polygon(50% 0%,88% 6%,100% 20%,100% 92%,90% 100%,10% 100%,0% 92%,0% 20%,12% 6%);box-shadow:0 6px 14px rgba(0,0,0,.5);}
 .m1{top:14px;left:0;transform:rotate(-12deg);background:linear-gradient(160deg,#9aa1ab,#eef0f2);z-index:1;}
@@ -283,6 +296,9 @@ footer{margin-top:auto;padding-top:22px;text-align:center;font-size:9.5px;letter
 .bench-empty{width:96px;aspect-ratio:0.72;border-radius:10px;border:2px dashed rgba(232,197,101,.4);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;background:rgba(10,9,8,.55);}
 .bench-empty .plus{font-family:'Anton',sans-serif;font-size:18px;color:var(--gold-light);line-height:1;}
 .bench-empty .role{font-size:7.5px;letter-spacing:1px;color:#a89a76;text-transform:uppercase;font-weight:700;}
+.market-slot-empty{width:96px;aspect-ratio:0.72;border-radius:10px;border:2px dashed rgba(232,197,101,.4);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;background:rgba(10,9,8,.55);}
+.market-slot-empty .plus{font-family:'Anton',sans-serif;font-size:18px;color:var(--gold-light);line-height:1;}
+.market-slot-empty .role{font-size:7.5px;letter-spacing:1px;color:#a89a76;text-transform:uppercase;font-weight:700;}
 .pslot .fc-outer{width:100%;}
 .cap-star{position:absolute;top:-7px;right:-4px;width:16px;height:16px;border-radius:50%;background:linear-gradient(160deg,var(--gold-light),var(--gold));display:flex;align-items:center;justify-content:center;font-size:9px;box-shadow:0 2px 5px rgba(0,0,0,.5),0 0 8px rgba(232,197,101,.6);z-index:5;}
 
@@ -506,6 +522,24 @@ function sellDuplicate(playerId){
   return true;
 }
 
+/* ================= MERCADO: venta en bloque de repetidas top ================= */
+// Slot 0 vende a 10x el precio normal, slot 1 a 20x, slot 2 a 40x.
+const MARKET_MULTIPLIERS = [10, 20, 40];
+function marketValue(rating, slotIndex){
+  return sellPrice(rating) * MARKET_MULTIPLIERS[slotIndex];
+}
+// Solo cartas con media mayor a 87 y de las que tengas 3 copias o más, sin
+// contar las que ya están puestas en otro slot del Mercado.
+function marketEligiblePlayers(excludeSlotIndex){
+  const col = getCollection();
+  const usedInOtherSlots = (state.marketSlots||[]).filter((id,i)=> id && i!==excludeSlotIndex);
+  return Object.keys(col)
+    .filter(id => col[id] >= 3 && usedInOtherSlots.indexOf(id) < 0)
+    .map(id => byId(id))
+    .filter(p => p && p.rating > 87)
+    .sort((a,b)=> b.rating - a.rating);
+}
+
 function getSavedDrafts(){
   try{ return JSON.parse(localStorage.getItem(DRAFTS_KEY)) || []; }catch(e){ return []; }
 }
@@ -568,7 +602,8 @@ function openPackDraw(probs){
 
 let state = { screen:'home', formation:null, formationChoices:[], captainId:null, captainCandidates:[], slots:[], bench:[], activeSlotId:null, activeBenchIndex:null, subsOpen:false, savedAt:null, selectedSlotId:null, selectedBenchId:null, addPlayerMsg:null, showPasswordGate:false, pwError:null, editingPlayerId:null,
   activePackId:null, packStage:null, packDraw:null, packSpecial:false, packRevealRating:0,
-  myTeamFilter:'ALL', myTeamSort:'rating' };
+  myTeamFilter:'ALL', myTeamSort:'rating',
+  marketSlots:[null,null,null], activeMarketIndex:null, marketSelling:false };
 
 function getSlotPositions(formationKey){
   const layout = FORMATIONS[formationKey];
@@ -698,91 +733,199 @@ function roundRectPath(ctx,x,y,w,h,r){
   ctx.arcTo(x,y,x+w,y,r);
   ctx.closePath();
 }
-function buildPosterDataUrl(team){
-  const W = 900, H = 1400;
+// Mismo polígono que el clip-path de .fc-outer/.fc-inner en CSS, para que las
+// cartas del póster tengan la misma silueta hexagonal que las cartas reales.
+function hexPath(ctx, x, y, w, h){
+  const pts = [[.50,0],[.88,.06],[1,.20],[1,.92],[.90,1],[.10,1],[0,.92],[0,.20],[.12,.06]];
+  ctx.beginPath();
+  pts.forEach((pt,i)=>{
+    const px = x + pt[0]*w, py = y + pt[1]*h;
+    if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+  });
+  ctx.closePath();
+}
+// Mismos degradados que las clases .fc-inner.tier-X del CSS, para que cada
+// carta del póster tenga el color real de su rareza.
+const TIER_GRADIENT_STOPS = {
+  plata:['#9aa1ab','#c3c8cf','#eef0f2'], oro:['#6e5717','#b5922e','#e8c565'],
+  ororaro:['#7a4508','#e2a223','#fff0b8'], if:['#1c1030','#6a4fae','#c9a8ff'],
+  mvp:['#210a02','#a8330f','#ff8f4a','#ffcf8a'], shapeshifter:['#ffd36e','#38e1c6','#7b5cff','#ff6fae'],
+  futurestar:['#03211d','#1f9b7f','#9dffe0'], icono:['#6e5717','#f7efd9','#fffef9','#ffffff'],
+  parche:['#4a0d13','#93202b','#cf7982'], 'parche-estrella':['#4a0d13','#93202b','#b5922e','#e8c565'],
+  tots:['#073540','#1c93ab','#7fe0d8','#e8c565'], balondeoro:['#050608','#0e2c52','#050608','#b5922e','#e8c565'],
+};
+const TIER_TEXT_COLOR = {
+  plata:'#141619', oro:'#241300', ororaro:'#241300', icono:'#2c2005', tots:'#052229',
+  if:'#ffffff', mvp:'#ffffff', shapeshifter:'#ffffff', futurestar:'#ffffff', parche:'#ffffff', 'parche-estrella':'#ffffff', balondeoro:'#ffffff'
+};
+function tierGradient(ctx, x0,y0,x1,y1, tier){
+  const stops = TIER_GRADIENT_STOPS[tier] || TIER_GRADIENT_STOPS.oro;
+  const g = ctx.createLinearGradient(x0,y0,x1,y1);
+  stops.forEach((c,i)=> g.addColorStop(i/(stops.length-1), c));
+  return g;
+}
+// Las fuentes de Google (Anton/Playfair) están cargadas en la página pero el
+// canvas no las usa hasta que se confirma que terminaron de descargar — sin
+// esto, el póster caía al font por defecto y se veía genérico.
+function ensurePosterFonts(){
+  return Promise.all([
+    document.fonts.load('800 60px "Anton"'),
+    document.fonts.load('900 60px "Playfair Display"'),
+    document.fonts.load('800 30px "Playfair Display"'),
+    document.fonts.load('700 22px "Playfair Display"'),
+    document.fonts.load('700 20px "Inter"'),
+  ]).catch(()=>{});
+}
+function drawMiniCard(ctx, cx, cy, w, player, img, isCaptain){
+  const h = w/0.72;
+  const x = cx-w/2, y = cy-h/2;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 8;
+  hexPath(ctx, x-w*0.035, y-w*0.035, w*1.07, h*1.035);
+  ctx.fillStyle = '#1c160d';
+  ctx.fill();
+  ctx.restore();
+
+  hexPath(ctx, x, y, w, h);
+  ctx.save();
+  ctx.fillStyle = tierGradient(ctx, x, y, x+w, y+h, player.tier);
+  ctx.fill();
+  ctx.clip();
+  // brillo diagonal, como el overlay de .fc-inner::after
+  const sheen = ctx.createLinearGradient(x, y, x+w*0.3, y+h*0.6);
+  sheen.addColorStop(0, 'rgba(255,255,255,.38)'); sheen.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = sheen; ctx.fillRect(x,y,w,h);
+
+  const textColor = TIER_TEXT_COLOR[player.tier] || '#241300';
+  ctx.fillStyle = textColor; ctx.textAlign = 'center';
+  ctx.font = '800 '+Math.round(w*0.20)+'px "Playfair Display", Georgia, serif';
+  ctx.fillText(String(player.rating), x+w*0.5, y+h*0.235);
+
+  const pr = w*0.235, pcx = x+w*0.5, pcy = y+h*0.475;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(pcx,pcy,pr,0,Math.PI*2); ctx.closePath(); ctx.clip();
+  ctx.fillStyle = '#2c2a22'; ctx.fillRect(pcx-pr,pcy-pr,pr*2,pr*2);
+  if(img) ctx.drawImage(img, pcx-pr, pcy-pr, pr*2, pr*2);
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = Math.max(1.5, w*0.014);
+  ctx.beginPath(); ctx.arc(pcx,pcy,pr,0,Math.PI*2); ctx.stroke();
+
+  ctx.font = '700 '+Math.round(w*0.108)+'px "Playfair Display", Georgia, serif';
+  const shortName = player.name.length>13 ? player.name.slice(0,12)+'…' : player.name;
+  ctx.fillText(shortName, x+w*0.5, y+h*0.80);
+  ctx.restore();
+
+  hexPath(ctx, x, y, w, h);
+  ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.stroke();
+
+  if(isCaptain){
+    const scx = x+w*0.85, scy = y+h*0.06, sr = w*0.11;
+    ctx.save();
+    ctx.shadowColor='rgba(0,0,0,.5)'; ctx.shadowBlur=8;
+    ctx.beginPath(); ctx.arc(scx,scy,sr,0,Math.PI*2);
+    const g2 = ctx.createLinearGradient(scx-sr,scy-sr,scx+sr,scy+sr);
+    g2.addColorStop(0,'#e8c565'); g2.addColorStop(1,'#b5922e');
+    ctx.fillStyle = g2; ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#1c1600'; ctx.font = '700 '+Math.round(sr*1.15)+'px Arial'; ctx.textAlign='center';
+    ctx.fillText('★', scx, scy+sr*0.38);
+  }
+}
+async function buildPosterDataUrl(team){
+  await ensurePosterFonts();
+  const W = 900, H = 1400, DPR = 2;
   const filledSlots = team.slots.filter(s=>s.playerId);
   const sources = [CREST_DATA].concat(filledSlots.map(s=>{
     const p = byId(s.playerId);
     return (p && p.photo) || PHOTO_DATA;
   }));
-  return Promise.all(sources.map(loadImageSafe)).then(imgs=>{
-    const crestImg = imgs[0];
-    const playerImgs = imgs.slice(1);
-    const canvas = document.createElement('canvas');
-    canvas.width = W; canvas.height = H;
-    const ctx = canvas.getContext('2d');
+  const imgs = await Promise.all(sources.map(loadImageSafe));
+  const crestImg = imgs[0];
+  const playerImgs = imgs.slice(1);
 
-    const bgGrad = ctx.createLinearGradient(0,0,0,H);
-    bgGrad.addColorStop(0,'#161209'); bgGrad.addColorStop(.5,'#0d0a06'); bgGrad.addColorStop(1,'#050403');
-    ctx.fillStyle = bgGrad; ctx.fillRect(0,0,W,H);
-    const glow = ctx.createRadialGradient(W/2,0,50,W/2,0,W*0.85);
-    glow.addColorStop(0,'rgba(232,197,101,.18)'); glow.addColorStop(1,'rgba(232,197,101,0)');
-    ctx.fillStyle = glow; ctx.fillRect(0,0,W,H*0.42);
+  const canvas = document.createElement('canvas');
+  canvas.width = W*DPR; canvas.height = H*DPR;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(DPR, DPR);
+  ctx.textBaseline = 'alphabetic';
 
-    ctx.save();
-    ctx.beginPath(); ctx.arc(W/2,112,54,0,Math.PI*2); ctx.closePath(); ctx.clip();
-    ctx.drawImage(crestImg, W/2-54, 112-54, 108, 108);
-    ctx.restore();
-    ctx.strokeStyle = '#e8c565'; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.arc(W/2,112,54,0,Math.PI*2); ctx.stroke();
+  const bgGrad = ctx.createLinearGradient(0,0,0,H);
+  bgGrad.addColorStop(0,'#1a1509'); bgGrad.addColorStop(.45,'#0d0a06'); bgGrad.addColorStop(1,'#040302');
+  ctx.fillStyle = bgGrad; ctx.fillRect(0,0,W,H);
+  const glow = ctx.createRadialGradient(W/2,10,40,W/2,10,W*0.9);
+  glow.addColorStop(0,'rgba(232,197,101,.22)'); glow.addColorStop(1,'rgba(232,197,101,0)');
+  ctx.fillStyle = glow; ctx.fillRect(0,0,W,H*0.45);
+  ctx.save();
+  ctx.globalAlpha = .035; ctx.strokeStyle = '#e8c565'; ctx.lineWidth = 1;
+  for(let d=-H; d<W+H; d+=46){ ctx.beginPath(); ctx.moveTo(d,0); ctx.lineTo(d+H,H); ctx.stroke(); }
+  ctx.restore();
 
-    ctx.textAlign = 'center';
-    ctx.fillStyle = '#f5f1e4';
-    ctx.font = '800 46px Georgia, "Playfair Display", serif';
-    ctx.fillText('FUTDJM', W/2, 222);
-    ctx.fillStyle = '#a89a76';
-    ctx.font = '600 16px Arial';
-    ctx.fillText('DON JULIO DE MILÁN · '+(team.formation||''), W/2, 250);
+  ctx.save();
+  ctx.shadowColor = 'rgba(232,197,101,.5)'; ctx.shadowBlur = 30;
+  ctx.beginPath(); ctx.arc(W/2,118,58,0,Math.PI*2); ctx.closePath(); ctx.clip();
+  ctx.drawImage(crestImg, W/2-58, 118-58, 116, 116);
+  ctx.restore();
+  ctx.strokeStyle = '#e8c565'; ctx.lineWidth = 4;
+  ctx.beginPath(); ctx.arc(W/2,118,58,0,Math.PI*2); ctx.stroke();
 
-    ctx.fillStyle = 'rgba(232,197,101,.09)';
-    roundRectPath(ctx, W/2-260, 280, 220, 92, 14); ctx.fill();
-    roundRectPath(ctx, W/2+40, 280, 220, 92, 14); ctx.fill();
-    ctx.fillStyle = '#a89a76'; ctx.font = '700 13px Arial';
-    ctx.fillText('MEDIA', W/2-150, 308);
-    ctx.fillText('QUÍMICA', W/2+150, 308);
-    ctx.fillStyle = '#e8c565'; ctx.font = '800 44px Arial';
-    ctx.fillText(String(team.avgRating), W/2-150, 353);
-    ctx.fillText(team.chem+'/70', W/2+150, 353);
+  ctx.textAlign = 'center';
+  const wordGrad = ctx.createLinearGradient(0,150,0,215);
+  wordGrad.addColorStop(0,'#f5e6b8'); wordGrad.addColorStop(.55,'#e8c565'); wordGrad.addColorStop(1,'#8a6d20');
+  ctx.fillStyle = wordGrad;
+  ctx.font = '400 58px "Anton", Impact, sans-serif';
+  ctx.fillText('FUTDJM', W/2, 216);
+  ctx.fillStyle = '#a89a76';
+  ctx.font = '700 15px "Inter", Arial, sans-serif';
+  const sub = 'DON JULIO DE MILÁN'+(team.formation ? ' · '+team.formation.toUpperCase() : '');
+  ctx.fillText(sub, W/2, 244);
+  const ruleGrad = ctx.createLinearGradient(W/2-70,0,W/2+70,0);
+  ruleGrad.addColorStop(0,'rgba(232,197,101,0)'); ruleGrad.addColorStop(.5,'#e8c565'); ruleGrad.addColorStop(1,'rgba(232,197,101,0)');
+  ctx.strokeStyle = ruleGrad; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(W/2-70,262); ctx.lineTo(W/2+70,262); ctx.stroke();
 
-    const pitchTop = 410, pitchH = 830, pitchLeft = 60, pitchW = W-120;
-    ctx.fillStyle = 'rgba(25,45,28,.45)';
-    roundRectPath(ctx, pitchLeft, pitchTop, pitchW, pitchH, 16); ctx.fill();
-    ctx.strokeStyle = 'rgba(232,197,101,.3)'; ctx.lineWidth = 2;
-    roundRectPath(ctx, pitchLeft, pitchTop, pitchW, pitchH, 16); ctx.stroke();
-
-    filledSlots.forEach((s,i)=>{
-      const p = byId(s.playerId);
-      const cx = pitchLeft + (s.x/100)*pitchW;
-      const cy = pitchTop + (s.y/100)*pitchH;
-      const r = 52;
-      ctx.save();
-      ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.closePath(); ctx.clip();
-      ctx.drawImage(playerImgs[i], cx-r, cy-r, r*2, r*2);
-      ctx.restore();
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = (p.id===team.captainId) ? '#e8c565' : 'rgba(255,255,255,.5)';
-      ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
-
-      ctx.fillStyle = '#e8c565';
-      ctx.beginPath(); ctx.arc(cx+r*0.72, cy-r*0.72, 21, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#1c1600'; ctx.font = '800 19px Arial'; ctx.textAlign = 'center';
-      ctx.fillText(String(p.rating), cx+r*0.72, cy-r*0.72+6);
-
-      ctx.fillStyle = '#f0e6cc'; ctx.font = '700 19px Georgia, serif'; ctx.textAlign = 'center';
-      ctx.fillText(p.name, cx, cy+r+26);
-      if(p.id===team.captainId){
-        ctx.fillStyle = '#e8c565'; ctx.font = '700 14px Arial';
-        ctx.fillText('★ CAPITÁN', cx, cy+r+46);
-      }
-    });
-
-    ctx.fillStyle = '#5c5340'; ctx.font = '600 13px Arial'; ctx.textAlign = 'center';
-    let dateStr = '';
-    try{ dateStr = new Date(team.savedAt).toLocaleDateString('es-CL'); }catch(e){}
-    ctx.fillText('FUTDJM · FÚTBOL 7 · '+dateStr, W/2, H-30);
-
-    return canvas.toDataURL('image/png');
+  [{label:'MEDIA', val:String(team.avgRating), cx:W/2-150},
+   {label:'QUÍMICA', val:team.chem+'/70', cx:W/2+150}].forEach(box=>{
+    ctx.fillStyle = 'rgba(232,197,101,.08)';
+    roundRectPath(ctx, box.cx-110, 286, 220, 96, 14); ctx.fill();
+    ctx.strokeStyle = 'rgba(232,197,101,.28)'; ctx.lineWidth = 1;
+    roundRectPath(ctx, box.cx-110, 286, 220, 96, 14); ctx.stroke();
+    ctx.fillStyle = '#e8c565'; ctx.fillRect(box.cx-40, 286, 80, 2.5);
+    ctx.fillStyle = '#a89a76'; ctx.font = '700 12px "Inter", Arial, sans-serif';
+    ctx.fillText(box.label, box.cx, 318);
+    ctx.fillStyle = '#e8c565'; ctx.font = '400 42px "Anton", Impact, sans-serif';
+    ctx.fillText(box.val, box.cx, 364);
   });
+
+  const pitchTop = 418, pitchH = 820, pitchLeft = 55, pitchW = W-110;
+  const turf = ctx.createLinearGradient(0,pitchTop,0,pitchTop+pitchH);
+  turf.addColorStop(0,'#132015'); turf.addColorStop(.55,'#0c1710'); turf.addColorStop(1,'#070d09');
+  roundRectPath(ctx, pitchLeft, pitchTop, pitchW, pitchH, 18);
+  ctx.save(); ctx.clip();
+  ctx.fillStyle = turf; ctx.fillRect(pitchLeft,pitchTop,pitchW,pitchH);
+  ctx.globalAlpha = .05; ctx.fillStyle = '#fff';
+  for(let yy=pitchTop; yy<pitchTop+pitchH; yy+=56){ ctx.fillRect(pitchLeft, yy, pitchW, 28); }
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = 'rgba(232,197,101,.3)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(pitchLeft+20, pitchTop+pitchH*0.5); ctx.lineTo(pitchLeft+pitchW-20, pitchTop+pitchH*0.5); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W/2, pitchTop+pitchH*0.5, pitchW*0.14, 0, Math.PI*2); ctx.stroke();
+  ctx.restore();
+  ctx.strokeStyle = 'rgba(232,197,101,.35)'; ctx.lineWidth = 2;
+  roundRectPath(ctx, pitchLeft, pitchTop, pitchW, pitchH, 18); ctx.stroke();
+
+  const cardW = pitchW * 0.205;
+  filledSlots.forEach((s,i)=>{
+    const p = byId(s.playerId);
+    const cx = pitchLeft + (s.x/100)*pitchW;
+    const cy = pitchTop + (s.y/100)*pitchH;
+    drawMiniCard(ctx, cx, cy, cardW, p, playerImgs[i], p.id===team.captainId);
+  });
+
+  ctx.fillStyle = '#5c5340'; ctx.font = '700 13px "Inter", Arial, sans-serif'; ctx.textAlign = 'center';
+  let dateStr = '';
+  try{ dateStr = new Date(team.savedAt).toLocaleDateString('es-CL'); }catch(e){}
+  ctx.fillText('FUTDJM · FÚTBOL 7 · '+dateStr, W/2, H-28);
+
+  return canvas.toDataURL('image/png');
 }
 function downloadDataUrl(dataUrl, filename){
   const a = document.createElement('a');
@@ -791,6 +934,23 @@ function downloadDataUrl(dataUrl, filename){
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
+}
+// En el celular (sobre todo iOS) un <a download> casi nunca termina en la
+// galería de fotos — usamos la hoja de compartir nativa (con opción "Guardar
+// imagen") cuando está disponible, y el link de descarga como respaldo.
+async function sharePosterOrDownload(dataUrl, filename){
+  try{
+    const res = await fetch(dataUrl);
+    const blob = await res.blob();
+    const file = new File([blob], filename, {type:'image/png'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:'FUTDJM', text:'Mi equipo en FUTDJM'});
+      return;
+    }
+  }catch(e){
+    if(e && e.name==='AbortError') return; // el usuario cerró la hoja de compartir
+  }
+  downloadDataUrl(dataUrl, filename);
 }
 function currentTeamSnapshot(){
   const filled = state.slots.filter(s=>s.playerId);
@@ -821,9 +981,11 @@ function render(){
   else if(state.screen==='packs') html = renderPacksScreen();
   else if(state.screen==='store') html = renderStoreScreen();
   else if(state.screen==='myteam') html = renderMyTeamScreen();
+  else if(state.screen==='market') html = renderMarketScreen();
   let overlay = '';
   if(state.screen==='pitch' && state.activeSlotId) overlay = renderPicker();
   else if(state.screen==='pitch' && state.activeBenchIndex!=null) overlay = renderBenchPicker();
+  else if(state.screen==='market' && state.activeMarketIndex!=null) overlay = renderMarketPicker();
   if(state.showPasswordGate) overlay += renderPasswordGate();
   app.innerHTML = html + overlay;
   attachEvents();
@@ -855,6 +1017,7 @@ function renderHomeScreen(){
     activeRow('TIENDA','Comprá sobres con tus ÑUENDE COINS', 'goToStore', 'ENTRAR')+
     activeRow('ÚLTIMAS CARTAS','Todas las cartas del plantel, ordenadas por media', 'goToCards', 'VER')+
     activeRow('MI EQUIPO','Tu colección de cartas y ÑUENDE COINS', 'goToMyTeam', 'VER')+
+    activeRow('MERCADO','Vendé en bloque tus repetidas de alta media', 'goToMarket', 'ENTRAR')+
     activeRow('DRAFT GUARDADOS','Los equipos que fuiste guardando', 'goToSavedDrafts', 'VER')+
     lockedRow('ESTADÍSTICAS','Rankings y números de la temporada')+
     '<footer>FUTDJM · Fútbol 7</footer>'+
@@ -1099,6 +1262,52 @@ function renderMyTeamScreen(){
     renderCoinBadge() +
     '<div class="filter-row">'+filterPills+'</div>'+
     (entries.length ? '<div class="myteam-grid">'+cards+'</div>' : '<p class="hint">Todavía no tenés cartas — abrí un sobre en PACKS o en la TIENDA.</p>');
+}
+
+/* ---------- MERCADO ---------- */
+function renderMarketScreen(){
+  const slotsHtml = state.marketSlots.map((id, i)=>{
+    if(!id){
+      return '<div class="market-slot-wrap"><div class="market-slot-empty" data-action="openMarketSlot" data-market-index="'+i+'">'+
+        '<div class="plus">+</div><div class="role">SLOT '+(i+1)+'</div>'+
+      '</div></div>';
+    }
+    const p = byId(id);
+    const value = marketValue(p.rating, i);
+    const flyClass = state.marketSelling ? ' market-fly-'+i : '';
+    let card = fcCard(p, p.positions[0], {action: state.marketSelling ? '' : 'openMarketSlot'});
+    card = card.replace('data-id="'+p.id+'"', 'data-id="'+p.id+'" data-market-index="'+i+'"');
+    return '<div class="market-slot-wrap'+flyClass+'">'+
+      '<div class="market-card">'+card+'<div class="dup-badge">x3</div></div>'+
+      '<div class="market-value">'+value.toLocaleString('es-CL')+' 🪙 <span class="market-mult">('+MARKET_MULTIPLIERS[i]+'x)</span></div>'+
+    '</div>';
+  }).join('');
+
+  const totalValue = state.marketSlots.reduce((sum,id,i)=> id ? sum + marketValue(byId(id).rating, i) : sum, 0);
+  const anyFilled = state.marketSlots.some(Boolean);
+
+  return '<button class="back-btn" data-action="backToHome">‹ Inicio</button>'+
+    headerHtml('Vendé en bloque tus cartas repetidas de 88+ de media') +
+    renderCoinBadge() +
+    '<p class="hint">Solo cartas que tengas repetidas 3 veces o más, con media mayor a 87. Cada slot multiplica el precio normal: 10x, 20x y 40x.</p>'+
+    '<div class="market-grid">'+slotsHtml+'</div>'+
+    (anyFilled
+      ? '<button class="save-btn" data-action="sellMarket" style="width:100%;margin-top:20px;" '+(state.marketSelling?'disabled':'')+'>Vender ('+totalValue.toLocaleString('es-CL')+' 🪙)</button>'
+      : '<p class="hint">Elegí hasta 3 cartas para vender juntas.</p>');
+}
+function renderMarketPicker(){
+  const candidates = marketEligiblePlayers(state.activeMarketIndex);
+  const cards = candidates.map(p=>'<div class="card-wrap">'+fcCard(p, p.positions[0], {action:'assignMarket'})+'</div>').join('');
+  const body = candidates.length
+    ? '<div class="opt-row" style="flex-wrap:wrap;">'+cards+'</div>'
+    : '<p class="hint">No tenés cartas repetidas 3 veces o más con media mayor a 87 todavía.</p>';
+  return '<div class="overlay" data-action="closeMarketPickerBg">'+
+    '<div class="sheet" onclick="event.stopPropagation()">'+
+      '<div class="sheet-title">Elegí qué vender</div>'+
+      body+
+      '<button class="close-sheet" data-action="closeMarketPicker">Cancelar</button>'+
+    '</div>'+
+  '</div>';
 }
 
 /* ---------- EDITAR JUGADORES ---------- */
@@ -1525,14 +1734,14 @@ const handlers = {
   },
   downloadPoster(){
     const team = currentTeamSnapshot();
-    buildPosterDataUrl(team).then(url=>downloadDataUrl(url, 'futdjm-draft-'+Date.now()+'.png'));
+    buildPosterDataUrl(team).then(url=>sharePosterOrDownload(url, 'futdjm-draft-'+Date.now()+'.png'));
   },
   goToSavedDrafts(){ state.screen='saveddrafts'; render(); },
   downloadSavedPoster(el){
     const id = el.getAttribute('data-id');
     const team = getSavedDrafts().find(d=>d.id===id);
     if(!team) return;
-    buildPosterDataUrl(team).then(url=>downloadDataUrl(url, 'futdjm-draft-'+id+'.png'));
+    buildPosterDataUrl(team).then(url=>sharePosterOrDownload(url, 'futdjm-draft-'+id+'.png'));
   },
   deleteSavedDraft(el){
     const id = el.getAttribute('data-id');
@@ -1595,7 +1804,37 @@ const handlers = {
     render();
   },
   setMyTeamFilter(el){ state.myTeamFilter = el.getAttribute('data-code'); render(); },
-  sellCard(el){ sellDuplicate(el.getAttribute('data-id')); render(); }
+  sellCard(el){ sellDuplicate(el.getAttribute('data-id')); render(); },
+  goToMarket(){ state.screen='market'; state.marketSlots=[null,null,null]; state.activeMarketIndex=null; state.marketSelling=false; render(); },
+  openMarketSlot(el){ state.activeMarketIndex = parseInt(el.getAttribute('data-market-index'),10); render(); },
+  assignMarket(el){
+    const id = el.getAttribute('data-id');
+    state.marketSlots[state.activeMarketIndex] = id;
+    state.activeMarketIndex = null;
+    render();
+  },
+  closeMarketPicker(){ state.activeMarketIndex = null; render(); },
+  closeMarketPickerBg(){ state.activeMarketIndex = null; render(); },
+  sellMarket(){
+    if(state.marketSelling) return;
+    const col = getCollection();
+    let total = 0;
+    state.marketSlots.forEach((id,i)=>{
+      if(!id) return;
+      const p = byId(id);
+      total += marketValue(p.rating, i);
+      col[id] = Math.max(0, (col[id]||0) - 3);
+    });
+    saveCollection(col);
+    addCoins(total);
+    state.marketSelling = true;
+    render();
+    setTimeout(()=>{
+      state.marketSlots = [null,null,null];
+      state.marketSelling = false;
+      render();
+    }, 780);
+  }
 };
 
 render();
