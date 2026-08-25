@@ -439,12 +439,6 @@ function pickFormationChoices(){
   return Object.keys(FORMATIONS).slice().sort(()=>Math.random()-0.5).slice(0,4);
 }
 
-// Temporada de una carta para los requisitos de SBC tipo "jugador de la
-// temporada 2025". El roster base y las cartas creadas antes de este campo no
-// tienen "season" seteado — se asumen de la temporada actual (2026).
-const DEFAULT_SEASON = 2026;
-function cardSeason(p){ return p.season || DEFAULT_SEASON; }
-
 // Roster real DJM, extraído de DJM JUEGO.xlsx (via .xps) el 2026-08-24.
 // Rareza automática según media (Plata <=74, Oro 75-79, Oro raro 80-90) tal como
 // figuraba en la planilla original. Posiciones exactas de la planilla — vocabulario
@@ -699,54 +693,6 @@ const SBC_CATALOG = [
         rewardPacks:[{packId:'veliz',count:3}], rewardCoins:15000},
     ],
   },
-  {
-    id:'valenz_dinoco',
-    name:'VALENZ VS DINOCO',
-    rewardPacks:[],
-    rewardCoins:0,
-    rewardNote:'Recompensa final: VALENZ FLASHBACK 96 (vs Dinoco, 3 goles) — te la agregás vos con tipo de carta "Flashbacks" desde "Añadir jugador" una vez completado',
-    templates:[
-      {id:'el_comienzo', name:'EL COMIENZO', formation:'1-2-3-1', minPlayers:6, difficulty:'Fácil',
-        requirements:[{minRating:80},{minRating:75},{minRating:75},{},{},{}],
-        constraints:[{type:'maxCount', minRating:85, max:1}],
-        rewardPacks:[{packId:'nuende',count:1}], rewardCoins:3000},
-      {id:'dupla_de_oro', name:'DUPLA DE ORO', formation:'1-2-3-1', maxPlayers:2, difficulty:'Media',
-        requirements:[{person:'Lucho', minRating:99},{person:'Valenz', minRating:95}],
-        rewardPacks:[{packId:'euforia',count:2}], rewardCoins:20000},
-      {id:'el_10', name:'EL 10', formation:'1-2-3-1', difficulty:'Media',
-        requirements:[{positionAny:['MI','MC','MD']},{minRating:90},{minRating:85},{minRating:85}],
-        constraints:[{type:'maxCount', minRating:90, max:3}],
-        rewardPacks:[{packId:'euforia',count:2}], rewardCoins:15000},
-      {id:'don_julio', name:'DON JULIO', formation:'1-2-2-2', minPlayers:6, difficulty:'Media',
-        requirements:[{},{minRating:90},{minRating:85},{minRating:85},{},{}],
-        rewardPacks:[{packId:'consu',count:1}], rewardCoins:7500},
-      {id:'one_season_wonder', name:'ONE SEASON WONDER?', formation:'1-3-2-1', minPlayers:6, difficulty:'Media-Alta',
-        requirements:[{season:2026},{season:2025},{season:2025},{seasonMax:2024},{minRating:80},{minRating:80}],
-        constraints:[{type:'maxCount', minRating:90, max:1}],
-        rewardPacks:[{packId:'consu',count:2}], rewardCoins:10000},
-      {id:'pirulin_fc', name:'PIRULIN FC', formation:'1-2-2-2', minPlayers:7, difficulty:'Alta',
-        requirements:[{minRating:90},{minRating:85},{minRating:80},{minRating:80},{minRating:80},{person:'Lucho'},{}],
-        constraints:[{type:'maxCount', minRating:90, max:2}],
-        rewardPacks:[{packId:'veliz',count:1}], rewardCoins:12500},
-      {id:'dinoco', name:'DINOCO', formation:'1-2-3-1', minPlayers:7, difficulty:'Alta',
-        requirements:[
-          {position:'DC', minRating:90},
-          {positionAny:['MI','MC','MD','MCD','MCO'], minRating:90},
-          {minRating:94},{minRating:85},{minRating:85},{minRating:85},{},
-        ],
-        rewardPacks:[{packId:'veliz',count:2}], rewardCoins:15000},
-      {id:'don_gonzalo', name:'DON GONZALO', formation:'1-2-3-1', minPlayers:7, difficulty:'Muy Alta',
-        requirements:[{minRating:95},{minRating:90},{minRating:85},{minRating:85},{minRating:80},{minRating:80},{person:'Rafinha'}],
-        rewardPacks:[{packId:'djm',count:2}], rewardCoins:20000},
-      {id:'hat_trick', name:'HAT-TRICK', formation:'1-2-3-1', minPlayers:7, difficulty:'Extrema',
-        requirements:[{minRating:96},{minRating:94},{minRating:92},{minRating:92},{minRating:88},{minRating:88},{}],
-        rewardPacks:[{packId:'djm',count:2}], rewardCoins:25000},
-      {id:'burger_qlo_weno', name:'BURGER QLO WENO', formation:'1-3-2-1', minPlayers:7, difficulty:'Extrema',
-        requirements:[{person:'Valenz'},{minRating:95},{minRating:90},{minRating:85},{minRating:85},{minRating:80},{minRating:80}],
-        constraints:[{type:'maxCount', minRating:95, max:1}],
-        rewardPacks:[{packId:'djm',count:1}], rewardCoins:30000},
-    ],
-  },
 ];
 function sbcById(id){ return SBC_CATALOG.find(s=>s.id===id); }
 function templateById(sbcId, templateId){
@@ -819,17 +765,7 @@ function templateLayoutSlots(template){
   return positions;
 }
 function reqLabel(req){
-  if(req.person) return req.person + (req.minRating ? ' +'+req.minRating : '');
-  const parts = [];
-  if(req.minRating) parts.push('+'+req.minRating);
-  if(req.season) parts.push('Temporada '+req.season);
-  if(req.seasonMax) parts.push('Temporada '+req.seasonMax+' o antes');
-  return parts.length ? parts.join(' · ') : 'Cualquier jugador';
-}
-function reqPositionLabel(req){
-  if(req.position) return req.position;
-  if(req.positionAny) return req.positionAny.join('/');
-  return '';
+  return req.person + (req.minRating ? ' +'+req.minRating : '');
 }
 function difficultySlug(d){
   return d.toLowerCase().replace(/[áàä]/g,'a').replace(/-/g,'_');
@@ -843,12 +779,8 @@ function templateEligiblePlayers(template, slotIndex){
   const alreadyUsed = {};
   (state.templateSlots||[]).forEach((id,i)=>{ if(id && i!==slotIndex) alreadyUsed[id] = (alreadyUsed[id]||0)+1; });
   let candidates = POOL.filter(p=>{
-    if(req.person && p.person !== req.person) return false;
+    if(p.person !== req.person) return false;
     if(req.minRating && p.rating < req.minRating) return false;
-    if(req.position && p.positions.indexOf(req.position)<0) return false;
-    if(req.positionAny && !req.positionAny.some(pos=>p.positions.indexOf(pos)>=0)) return false;
-    if(req.season && cardSeason(p)!==req.season) return false;
-    if(req.seasonMax && cardSeason(p)>req.seasonMax) return false;
     const owned = col[p.id]||0;
     if(owned < 2) return false;
     if(owned <= (alreadyUsed[p.id]||0)) return false;
@@ -862,30 +794,15 @@ function templateEligiblePlayers(template, slotIndex){
 function templateRequirementsMet(template, slots){
   if(!slots || slots.length!==template.requirements.length) return false;
   if(slots.some(s=>!s)) return false;
-  const chosen = [];
   for(let i=0;i<template.requirements.length;i++){
     const req = template.requirements[i];
     const p = byId(slots[i]);
-    if(!p) return false;
-    if(req.person && p.person!==req.person) return false;
+    if(!p || p.person!==req.person) return false;
     if(req.minRating && p.rating<req.minRating) return false;
-    if(req.position && p.positions.indexOf(req.position)<0) return false;
-    if(req.positionAny && !req.positionAny.some(pos=>p.positions.indexOf(pos)>=0)) return false;
-    if(req.season && cardSeason(p)!==req.season) return false;
-    if(req.seasonMax && cardSeason(p)>req.seasonMax) return false;
-    chosen.push(p);
   }
   const filledCount = slots.filter(Boolean).length;
   if(template.maxPlayers && filledCount>template.maxPlayers) return false;
   if(template.minPlayers && filledCount<template.minPlayers) return false;
-  if(template.constraints){
-    for(const c of template.constraints){
-      if(c.type==='maxCount'){
-        const cnt = chosen.filter(p=>p.rating>=c.minRating).length;
-        if(cnt>c.max) return false;
-      }
-    }
-  }
   if(template.minChemistry){
     const layoutSlots = templateLayoutSlots(template);
     const chem = slots.reduce((sum,id,i)=>{
@@ -1463,7 +1380,6 @@ function renderAddPlayerScreen(){
     '</div>'+
     '<div class="form-field"><label>Media</label><input type="number" id="npRating" min="1" max="99" placeholder="1-99"></div>'+
     '<div class="form-field"><label>Tipo de carta</label><select id="npTier">'+tierOptions+'</select></div>'+
-    '<div class="form-field"><label>Temporada (para SBCs que piden jugadores de cierto año)</label><input type="number" id="npSeason" value="'+DEFAULT_SEASON+'"></div>'+
     '<div class="form-field"><label>Posición natural</label><select id="npPrimary">'+posOptions+'</select></div>'+
     '<div class="form-field"><label>Posiciones extra</label><div class="chk-grid">'+extraChecks+'</div></div>'+
     '<div class="form-field"><label>Foto (opcional)</label><input type="file" accept="image/*" id="npPhoto" data-onchange="photoSelected"></div>'+
@@ -1742,10 +1658,7 @@ function renderSbcListScreen(){
 function renderSbcTemplatesScreen(){
   const sbc = sbcById(state.activeSbcId);
   const prog = getSbcProgress();
-  const totalRewardParts = [];
-  if(sbc.rewardPacks.length) totalRewardParts.push(sbc.rewardPacks.map(r=>r.count+'x '+packById(r.packId).name).join(' + '));
-  if(sbc.rewardCoins) totalRewardParts.push(sbc.rewardCoins.toLocaleString('es-CL')+' 🪙');
-  const totalRewardStr = totalRewardParts.length ? totalRewardParts.join(' + ') : 'carta especial exclusiva';
+  const totalRewardStr = sbc.rewardPacks.map(r=>r.count+'x '+packById(r.packId).name).join(' + ')+' + '+sbc.rewardCoins.toLocaleString('es-CL')+' 🪙';
   const rows = sbc.templates.map(t=>{
     const done = !!prog[t.id];
     const rewardStr = t.rewardPacks.map(r=>r.count+'x '+packById(r.packId).name).join(' + ')+' + '+t.rewardCoins.toLocaleString('es-CL')+' 🪙';
@@ -1780,10 +1693,9 @@ function renderTemplateBuilderScreen(){
     const pos = layoutSlots[i];
     const filledId = state.templateSlots[i];
     if(!filledId){
-      const posLbl = reqPositionLabel(req);
       return '<div class="pslot" style="left:'+pos.x+'%;top:'+pos.y+'%;">'+
         '<div class="pslot-empty" data-action="openTemplateSlot" data-slot-index="'+i+'">'+
-          '<div class="plus">+</div><div class="role" style="font-size:6.5px;">'+(posLbl?posLbl+' ':'')+reqLabel(req)+'</div>'+
+          '<div class="plus">+</div><div class="role" style="font-size:6.5px;">'+reqLabel(req)+'</div>'+
         '</div>'+
       '</div>';
     }
@@ -1794,16 +1706,10 @@ function renderTemplateBuilderScreen(){
   }).join('');
 
   const met = templateRequirementsMet(template, state.templateSlots);
-  const reqLines = template.requirements.map(req=>{
-    const posLbl = reqPositionLabel(req);
-    return '<li>'+reqLabel(req)+(posLbl?' — '+posLbl:'')+'</li>';
-  }).join('');
+  const reqLines = template.requirements.map(req=>'<li>'+reqLabel(req)+(req.position?' — '+req.position:'')+'</li>').join('');
   const extra = [];
   if(template.minPlayers) extra.push('Mínimo '+template.minPlayers+' jugadores');
   if(template.maxPlayers) extra.push('Máximo '+template.maxPlayers+' jugadores');
-  if(template.constraints) template.constraints.forEach(c=>{
-    if(c.type==='maxCount') extra.push('Máximo '+c.max+' jugador'+(c.max===1?'':'es')+' +'+c.minRating);
-  });
   if(template.minChemistry) extra.push(template.minChemistry+' de química');
   extra.push('Dificultad: '+template.difficulty);
 
@@ -1832,11 +1738,9 @@ function renderTemplatePicker(){
   const body = candidates.length
     ? '<div class="opt-row" style="flex-wrap:wrap;">'+cards+'</div>'
     : '<p class="hint">No tenés ninguna carta repetida que cumpla este requisito.</p>';
-  const activeReq = template.requirements[state.activeTemplateSlotIndex];
-  const activePosLbl = reqPositionLabel(activeReq);
   return '<div class="overlay" data-action="closeTemplatePickerBg">'+
     '<div class="sheet" onclick="event.stopPropagation()">'+
-      '<div class="sheet-title">Elegí para: '+reqLabel(activeReq)+(activePosLbl?' — '+activePosLbl:'')+'</div>'+
+      '<div class="sheet-title">Elegí para: '+reqLabel(template.requirements[state.activeTemplateSlotIndex])+'</div>'+
       '<div class="filter-row" style="justify-content:center;">'+filterPills+'</div>'+
       body+
       '<button class="close-sheet" data-action="closeTemplatePicker">Cancelar</button>'+
@@ -1850,9 +1754,7 @@ function renderSbcClaimCinematic(){
   if(!sbc) return '';
   const cardId = getSbcRewardCards()[sbc.id];
   const card = cardId ? byId(cardId) : null;
-  const rewardParts = [];
-  if(sbc.rewardPacks.length) rewardParts.push(sbc.rewardPacks.map(r=>r.count+'x '+packById(r.packId).name).join(' + '));
-  if(sbc.rewardCoins) rewardParts.push(sbc.rewardCoins.toLocaleString('es-CL')+' 🪙');
+  const packsText = sbc.rewardPacks.map(r=>r.count+'x '+packById(r.packId).name).join(' + ');
   const confetti = renderConfetti(card ? card.tier : 'balondeoro');
   const cardHtml = card
     ? '<div class="card-wrap sbc-claim-card reveal-pop">'+fcCard(card, card.positions[0], {action:''})+'</div>'
@@ -1863,7 +1765,7 @@ function renderSbcClaimCinematic(){
       '<div class="sbc-claim-title">¡'+sbc.name+'<br>COMPLETO!</div>'+
       cardHtml+
       (card ? '<div class="sbc-claim-name">'+card.name+'</div>' : '')+
-      (rewardParts.length ? '<div class="sbc-claim-rewards">'+rewardParts.join(' · ')+'</div>' : '')+
+      '<div class="sbc-claim-rewards">'+packsText+' · '+sbc.rewardCoins.toLocaleString('es-CL')+' 🪙</div>'+
       '<p class="hint">Tocá la pantalla para continuar</p>'+
     '</div>'+
   '</div>';
@@ -1901,7 +1803,6 @@ function renderEditPlayerFormScreen(){
     '</div>'+
     '<div class="form-field"><label>Media</label><input type="number" id="npRating" min="1" max="99" value="'+p.rating+'"></div>'+
     '<div class="form-field"><label>Tipo de carta</label><select id="npTier">'+tierOptions+'</select></div>'+
-    '<div class="form-field"><label>Temporada (para SBCs que piden jugadores de cierto año)</label><input type="number" id="npSeason" value="'+cardSeason(p)+'"></div>'+
     '<div class="form-field"><label>Posición natural</label><select id="npPrimary">'+posOptions+'</select></div>'+
     '<div class="form-field"><label>Posiciones extra</label><div class="chk-grid">'+extraChecks+'</div></div>'+
     '<div class="form-field"><label>Foto '+(p.photo?'(ya tiene una — subí otra para reemplazarla)':'(opcional)')+'</label><input type="file" accept="image/*" id="npPhoto" data-onchange="photoSelected"></div>'+
@@ -2092,8 +1993,7 @@ const handlers = {
     const personInput = document.getElementById('npPerson').value.trim();
     const person = personInput || name;
     const packEligible = document.getElementById('npPacks').checked;
-    const season = parseInt(document.getElementById('npSeason').value, 10) || DEFAULT_SEASON;
-    const updated = Object.assign({}, p, {name, rating, tier, positions, person, packEligible, season});
+    const updated = Object.assign({}, p, {name, rating, tier, positions, person, packEligible});
     if(pendingPhotoData) updated.photo = pendingPhotoData;
     const idx = POOL.findIndex(x=>x.id===p.id);
     POOL[idx] = updated;
@@ -2153,8 +2053,7 @@ const handlers = {
     const personInput = document.getElementById('npPerson').value.trim();
     const person = personInput || name;
     const packEligible = document.getElementById('npPacks').checked;
-    const season = parseInt(document.getElementById('npSeason').value, 10) || DEFAULT_SEASON;
-    const player = {id, name, rating, tier, positions, person, packEligible, season};
+    const player = {id, name, rating, tier, positions, person, packEligible};
     if(pendingPhotoData) player.photo = pendingPhotoData;
     POOL.push(player);
     saveOverride(player);
