@@ -483,11 +483,21 @@ function byId(id){ return POOL.find(p=>p.id===id); }
 // embebido al iniciar. Un override puede ser un jugador nuevo (id no existía
 // en el roster) o una versión editada de uno que ya existía.
 const OVERRIDES_KEY = 'futdjm_overrides';
+// Devuelve true/false según si se pudo guardar de verdad — si el navegador
+// rechaza el write por falta de espacio (localStorage lleno, típicamente por
+// fotos pesadas acumuladas), antes esto fallaba en silencio: la carta se veía
+// bien en esa sesión pero desaparecía al volver a cargar la página porque
+// nunca había quedado guardada.
 function saveOverride(player){
   let overrides = {};
   try{ overrides = JSON.parse(localStorage.getItem(OVERRIDES_KEY)) || {}; }catch(e){}
   overrides[player.id] = player;
-  localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
+  try{
+    localStorage.setItem(OVERRIDES_KEY, JSON.stringify(overrides));
+    return true;
+  }catch(e){
+    return false;
+  }
 }
 function deleteOverride(id){
   let overrides = {};
@@ -1366,6 +1376,32 @@ function personDatalist(){
   return '<datalist id="personsList">'+names.map(n=>'<option value="'+n+'"></option>').join('')+'</datalist>';
 }
 let pendingPhotoData = null;
+// Achica y comprime la foto antes de guardarla en localStorage — una foto de
+// cámara sin tocar puede pesar varios MB en base64, y varias cartas con foto
+// llenan la cuota de localStorage del navegador (5-10MB típico). Cuando eso
+// pasa el guardado falla en silencio y la carta desaparece al recargar la
+// página. 300px alcanza de sobra para el círculo de la carta y el póster.
+function compressImageFile(file, maxDim, quality){
+  return new Promise((resolve, reject)=>{
+    const reader = new FileReader();
+    reader.onerror = ()=> reject(reader.error);
+    reader.onload = ()=>{
+      const img = new Image();
+      img.onerror = ()=> reject(new Error('No se pudo leer la imagen'));
+      img.onload = ()=>{
+        let w = img.width, h = img.height;
+        if(w>h){ if(w>maxDim){ h = Math.round(h*maxDim/w); w = maxDim; } }
+        else if(h>maxDim){ w = Math.round(w*maxDim/h); h = maxDim; }
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 function renderAddPlayerScreen(){
   const posOptions = POSITION_CODES.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
   const extraChecks = POSITION_CODES.map(c=>'<label class="chk-row"><input type="checkbox" value="'+c+'" class="extra-pos">'+c+'</label>').join('');
@@ -2005,7 +2041,12 @@ const handlers = {
     if(pendingPhotoData) updated.photo = pendingPhotoData;
     const idx = POOL.findIndex(x=>x.id===p.id);
     POOL[idx] = updated;
-    saveOverride(updated);
+    if(!saveOverride(updated)){
+      POOL[idx] = p;
+      state.addPlayerMsg = 'No se pudo guardar: se llenó el espacio de almacenamiento del navegador. Borrá alguna carta vieja con foto desde "Editar jugadores existentes" para liberar espacio y probá de nuevo.';
+      render();
+      return;
+    }
     const sbcSel = document.getElementById('npSbc').value;
     linkCardToSbc(p.id, sbcSel);
     pendingPhotoData = null;
@@ -2040,9 +2081,9 @@ const handlers = {
   photoSelected(el){
     const file = el.files[0];
     if(!file){ pendingPhotoData = null; return; }
-    const reader = new FileReader();
-    reader.onload = ()=>{ pendingPhotoData = reader.result; };
-    reader.readAsDataURL(file);
+    compressImageFile(file, 300, 0.82)
+      .then(dataUrl=>{ pendingPhotoData = dataUrl; })
+      .catch(()=>{ pendingPhotoData = null; });
   },
   submitPlayer(){
     const name = document.getElementById('npName').value.trim();
@@ -2064,7 +2105,12 @@ const handlers = {
     const player = {id, name, rating, tier, positions, person, packEligible};
     if(pendingPhotoData) player.photo = pendingPhotoData;
     POOL.push(player);
-    saveOverride(player);
+    if(!saveOverride(player)){
+      POOL.pop();
+      state.addPlayerMsg = 'No se pudo guardar: se llenó el espacio de almacenamiento del navegador. Borrá alguna carta vieja con foto desde "Editar jugadores existentes" para liberar espacio y probá de nuevo.';
+      render();
+      return;
+    }
     const sbcSel = document.getElementById('npSbc').value;
     linkCardToSbc(id, sbcSel);
     pendingPhotoData = null;
