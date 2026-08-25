@@ -304,6 +304,18 @@ footer{margin-top:auto;padding-top:22px;text-align:center;font-size:9.5px;letter
 .sheet-title{font-family:'Playfair Display',serif;font-size:16px;text-align:center;margin-bottom:14px;color:#f0e6cc;}
 .opt-row{display:flex;gap:14px;justify-content:center;}
 .close-sheet{display:block;margin:16px auto 0;background:none;border:none;color:#a89a76;font-size:12px;text-decoration:underline;cursor:pointer;}
+
+/* Picker del draft: ocupa media pantalla y no tiene forma de cerrarse sin
+   elegir una carta (sin botón cancelar, sin cerrar tocando el fondo). */
+.sheet-forced{
+  min-height:50vh; max-height:88vh; overflow-y:auto;
+  display:flex; flex-direction:column; justify-content:center;
+  box-shadow:0 -20px 50px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.06);
+  border-top:1px solid rgba(232,197,101,.5);
+}
+.sheet-forced .sheet-title{font-size:19px;margin-bottom:22px;}
+.sheet-forced .opt-row{flex-wrap:wrap;row-gap:26px;}
+.sheet-forced .hint{margin-top:24px;opacity:.75;}
 </style>
 </head>
 <body>
@@ -366,31 +378,34 @@ function pickFormationChoices(){
 // media 84 marcada "CAMBIO DE POSICION"). Es el mismo jugador con dos cartas:
 // su carta base (oro raro, ARQ) y una carta especial Shapeshifter (jugador en
 // posición distinta a la habitual, ver sección 3.1 del brief).
+// "person" identifica a la persona real detrás de la carta — si dos cartas
+// comparten el mismo person, el draft nunca deja tener ambas al mismo tiempo
+// (aunque tengan id distinto, como las dos cartas de Rai).
 const POOL = [
-  {id:'chelo', name:'Chelo', rating:86, tier:'ororaro', positions:['DFC','LD','LI','MCD','DC'], photo:'assets/jugadores/chelo.jpg'},
-  {id:'banado', name:'Bañado', rating:86, tier:'ororaro', positions:['DFC','LD','LI','MD'], photo:'assets/jugadores/banado.jpg'},
-  {id:'pancho', name:'Pancho', rating:79, tier:'oro', positions:['DFC','LI'], photo:'assets/jugadores/pancho.jpg'},
-  {id:'lucho', name:'Lucho', rating:90, tier:'ororaro', positions:['DFC','MCD','MC','MCO','DC'], photo:'assets/jugadores/lucho.jpg'},
-  {id:'valenz', name:'Valenz', rating:85, tier:'ororaro', positions:['MC','MCD','MCO','MI'], photo:'assets/jugadores/valenz.jpg'},
-  {id:'mato', name:'Mato', rating:74, tier:'plata', positions:['MC','DFC','LD','DC'], photo:'assets/jugadores/mato.jpg'},
-  {id:'rafinha', name:'Rafinha', rating:81, tier:'ororaro', positions:['MC','MD','MCO','DC'], photo:'assets/jugadores/rafinha.jpg'},
-  {id:'mrillon', name:'Mrillon', rating:74, tier:'plata', positions:['MC','MD','DC'], photo:'assets/jugadores/mrillon.jpg'},
-  {id:'vanti', name:'Vanti', rating:87, tier:'ororaro', positions:['DC','DFC'], photo:'assets/jugadores/vanti.jpg'},
-  {id:'pelaoizq', name:'Pelao Izq', rating:82, tier:'ororaro', positions:['ARQ'], photo:'assets/jugadores/pelaoizq.jpg'},
-  {id:'costas', name:'Costas', rating:80, tier:'ororaro', positions:['ARQ'], photo:'assets/jugadores/costas.jpg'},
-  {id:'nikolai', name:'Nikolai', rating:84, tier:'ororaro', positions:['MC','MI','MD','MCO','DC']},
-  {id:'rai', name:'Rai', rating:82, tier:'ororaro', positions:['ARQ']},
-  {id:'raiss', name:'Rai', rating:84, tier:'shapeshifter', positions:['DFC','LI','LD']},
-  {id:'maxv', name:'Max V', rating:84, tier:'ororaro', positions:['MC','MI','MD','MCO','DC'], photo:'assets/jugadores/maxv.jpg'},
-  {id:'puente', name:'Puente', rating:87, tier:'ororaro', positions:['MC','DFC','MCD','MCO','DC'], photo:'assets/jugadores/puente.jpg'},
-  {id:'varela', name:'Varela', rating:88, tier:'ororaro', positions:['MC','MCD','MCO']},
-  {id:'tabach', name:'Tabach', rating:76, tier:'oro', positions:['ARQ']},
-  {id:'calde', name:'Calde', rating:74, tier:'plata', positions:['DFC','LI']},
-  {id:'beltran', name:'Beltran', rating:85, tier:'ororaro', positions:['MC','DC']},
-  {id:'tito', name:'Tito', rating:83, tier:'ororaro', positions:['ARQ']},
-  {id:'joaco', name:'Joaco', rating:89, tier:'ororaro', positions:['MC','DFC','MCD']},
-  {id:'mango', name:'Mango', rating:84, tier:'ororaro', positions:['DC','DFC','MC']},
-  {id:'balta', name:'Balta', rating:85, tier:'ororaro', positions:['MC','MCO','DC']},
+  {id:'chelo', name:'Chelo', rating:86, tier:'ororaro', positions:['DFC','LD','LI','MCD','DC'], photo:'assets/jugadores/chelo.jpg', person:'Chelo'},
+  {id:'banado', name:'Bañado', rating:86, tier:'ororaro', positions:['DFC','LD','LI','MD'], photo:'assets/jugadores/banado.jpg', person:'Bañado'},
+  {id:'pancho', name:'Pancho', rating:79, tier:'oro', positions:['DFC','LI'], photo:'assets/jugadores/pancho.jpg', person:'Pancho'},
+  {id:'lucho', name:'Lucho', rating:90, tier:'ororaro', positions:['DFC','MCD','MC','MCO','DC'], photo:'assets/jugadores/lucho.jpg', person:'Lucho'},
+  {id:'valenz', name:'Valenz', rating:85, tier:'ororaro', positions:['MC','MCD','MCO','MI'], photo:'assets/jugadores/valenz.jpg', person:'Valenz'},
+  {id:'mato', name:'Mato', rating:74, tier:'plata', positions:['MC','DFC','LD','DC'], photo:'assets/jugadores/mato.jpg', person:'Mato'},
+  {id:'rafinha', name:'Rafinha', rating:81, tier:'ororaro', positions:['MC','MD','MCO','DC'], photo:'assets/jugadores/rafinha.jpg', person:'Rafinha'},
+  {id:'mrillon', name:'Mrillon', rating:74, tier:'plata', positions:['MC','MD','DC'], photo:'assets/jugadores/mrillon.jpg', person:'Mrillon'},
+  {id:'vanti', name:'Vanti', rating:87, tier:'ororaro', positions:['DC','DFC'], photo:'assets/jugadores/vanti.jpg', person:'Vanti'},
+  {id:'pelaoizq', name:'Pelao Izq', rating:82, tier:'ororaro', positions:['ARQ'], photo:'assets/jugadores/pelaoizq.jpg', person:'Pelao Izq'},
+  {id:'costas', name:'Costas', rating:80, tier:'ororaro', positions:['ARQ'], photo:'assets/jugadores/costas.jpg', person:'Costas'},
+  {id:'nikolai', name:'Nikolai', rating:84, tier:'ororaro', positions:['MC','MI','MD','MCO','DC'], person:'Nikolai'},
+  {id:'rai', name:'Rai', rating:82, tier:'ororaro', positions:['ARQ'], person:'Rai'},
+  {id:'raiss', name:'Rai', rating:84, tier:'shapeshifter', positions:['DFC','LI','LD'], person:'Rai'},
+  {id:'maxv', name:'Max V', rating:84, tier:'ororaro', positions:['MC','MI','MD','MCO','DC'], photo:'assets/jugadores/maxv.jpg', person:'Max V'},
+  {id:'puente', name:'Puente', rating:87, tier:'ororaro', positions:['MC','DFC','MCD','MCO','DC'], photo:'assets/jugadores/puente.jpg', person:'Puente'},
+  {id:'varela', name:'Varela', rating:88, tier:'ororaro', positions:['MC','MCD','MCO'], person:'Varela'},
+  {id:'tabach', name:'Tabach', rating:76, tier:'oro', positions:['ARQ'], person:'Tabach'},
+  {id:'calde', name:'Calde', rating:74, tier:'plata', positions:['DFC','LI'], person:'Calde'},
+  {id:'beltran', name:'Beltran', rating:85, tier:'ororaro', positions:['MC','DC'], person:'Beltran'},
+  {id:'tito', name:'Tito', rating:83, tier:'ororaro', positions:['ARQ'], person:'Tito'},
+  {id:'joaco', name:'Joaco', rating:89, tier:'ororaro', positions:['MC','DFC','MCD'], person:'Joaco'},
+  {id:'mango', name:'Mango', rating:84, tier:'ororaro', positions:['DC','DFC','MC'], person:'Mango'},
+  {id:'balta', name:'Balta', rating:85, tier:'ororaro', positions:['MC','MCO','DC'], person:'Balta'},
 ];
 function byId(id){ return POOL.find(p=>p.id===id); }
 
@@ -418,7 +433,10 @@ function loadOverrides(){
     const overrides = JSON.parse(raw);
     Object.keys(overrides).forEach(id=>{
       const idx = POOL.findIndex(p=>p.id===id);
-      if(idx>=0) POOL[idx] = overrides[id];
+      // Mezcla en vez de reemplazar: si un override viejo (guardado antes de
+      // que existiera algún campo nuevo) no lo trae, se conserva el del roster
+      // embebido en vez de perderlo.
+      if(idx>=0) POOL[idx] = Object.assign({}, POOL[idx], overrides[id]);
       else POOL.push(overrides[id]);
     });
   }catch(e){}
@@ -445,6 +463,10 @@ function applyDeleted(){
 
 loadOverrides();
 applyDeleted();
+// Cualquier carta que no tenga "person" (roster viejo guardado antes de este
+// campo, o jugadores custom de antes) queda como persona única de sí misma —
+// no cambia nada para ella, simplemente no excluye a nadie más.
+POOL.forEach(p=>{ if(!p.person) p.person = p.name; });
 
 /* ================= ÑUENDE COINS / COLECCIÓN / DRAFTS GUARDADOS ================= */
 const COINS_KEY = 'futdjm_coins';
@@ -566,6 +588,14 @@ function usedIds(excludeSlotId, excludeBenchIndex){
   const bench = (state.bench||[]).filter((id,i)=> id && i!==excludeBenchIndex);
   return placed.concat(bench);
 }
+// Personas ya usadas en el draft actual (misma exclusión que usedIds, pero por
+// "person" en vez de id — así dos cartas de la misma persona, como las dos de
+// Rai, nunca pueden estar juntas en el mismo equipo).
+function usedPersons(excludeSlotId, excludeBenchIndex){
+  return usedIds(excludeSlotId, excludeBenchIndex)
+    .map(id=>{ const p = byId(id); return p ? p.person : null; })
+    .filter(Boolean);
+}
 
 // Selección ponderada sin reemplazo: los jugadores con foto propia pesan 3x más
 // que los que aún usan el placeholder en blanco (menos probables de salir).
@@ -603,11 +633,12 @@ function bucketedPick(candidates, n){
 // se eligen — eso ya lo maneja el cálculo de química por posición real).
 function optionsFor(role, excludeSlotId){
   const used = usedIds(excludeSlotId);
-  const inPosition = POOL.filter(p=> p.positions.includes(role) && !used.includes(p.id));
+  const usedP = usedPersons(excludeSlotId);
+  const inPosition = POOL.filter(p=> p.positions.includes(role) && !used.includes(p.id) && !usedP.includes(p.person));
   let picked = bucketedPick(inPosition, 3);
   if(picked.length < 3){
     const avgRating = picked.length ? picked.reduce((s,p)=>s+p.rating,0)/picked.length : 80;
-    const outOfPosition = POOL.filter(p=> !p.positions.includes(role) && !used.includes(p.id) && picked.indexOf(p)<0);
+    const outOfPosition = POOL.filter(p=> !p.positions.includes(role) && !used.includes(p.id) && !usedP.includes(p.person) && picked.indexOf(p)<0);
     const closest = outOfPosition.slice().sort((a,b)=>Math.abs(a.rating-avgRating)-Math.abs(b.rating-avgRating));
     picked = picked.concat(closest.slice(0, 3-picked.length));
   }
@@ -625,7 +656,8 @@ function pickCaptainCandidates(formationKey){
 // puede entrar al banco.
 function optionsForBench(excludeBenchIndex){
   const used = usedIds(null, excludeBenchIndex);
-  const candidates = POOL.filter(p=>!used.includes(p.id));
+  const usedP = usedPersons(null, excludeBenchIndex);
+  const candidates = POOL.filter(p=>!used.includes(p.id) && !usedP.includes(p.person));
   return bucketedPick(candidates, 3);
 }
 
@@ -868,6 +900,12 @@ function tierFromRating(rating){
   if(rating>=75) return 'oro';
   return 'plata';
 }
+// Lista de personas ya registradas (para el autocompletado al conectar una
+// carta nueva o editada a un jugador real que ya existe).
+function personDatalist(){
+  const names = Array.from(new Set(POOL.map(p=>p.person).filter(Boolean))).sort();
+  return '<datalist id="personsList">'+names.map(n=>'<option value="'+n+'"></option>').join('')+'</datalist>';
+}
 let pendingPhotoData = null;
 function renderAddPlayerScreen(){
   const posOptions = POSITION_CODES.map(c=>'<option value="'+c+'">'+c+'</option>').join('');
@@ -875,7 +913,12 @@ function renderAddPlayerScreen(){
   const tierOptions = TIER_OPTIONS.map(t=>'<option value="'+t.value+'">'+t.label+'</option>').join('');
   return '<button class="back-btn" data-action="backToHome">‹ Inicio</button>'+
     headerHtml('Cargá un jugador nuevo al plantel') +
-    '<div class="form-field"><label>Nombre</label><input type="text" id="npName" placeholder="Nombre"></div>'+
+    '<div class="form-field"><label>Nombre de la carta</label><input type="text" id="npName" placeholder="Nombre"></div>'+
+    '<div class="form-field"><label>Jugador real (para que no se repita en el draft)</label>'+
+      '<input type="text" id="npPerson" list="personsList" placeholder="Dejalo vacío si es un jugador nuevo">'+
+      personDatalist()+
+      '<div class="hint" style="text-align:left;margin:4px 0 0;">Si esta carta es de alguien que ya tiene otra carta (ej. una especial de Valenz), escribí su nombre tal cual para conectarlas — así nunca van a poder salir juntas en el mismo equipo.</div>'+
+    '</div>'+
     '<div class="form-field"><label>Media</label><input type="number" id="npRating" min="1" max="99" placeholder="1-99"></div>'+
     '<div class="form-field"><label>Tipo de carta</label><select id="npTier">'+tierOptions+'</select></div>'+
     '<div class="form-field"><label>Posición natural</label><select id="npPrimary">'+posOptions+'</select></div>'+
@@ -1082,7 +1125,12 @@ function renderEditPlayerFormScreen(){
   const tierOptions = TIER_OPTIONS.filter(t=>t.value!=='auto').map(t=>'<option value="'+t.value+'"'+(t.value===p.tier?' selected':'')+'>'+t.label+'</option>').join('');
   return '<button class="back-btn" data-action="goToEditList">‹ Editar jugadores</button>'+
     headerHtml('Editando a '+p.name) +
-    '<div class="form-field"><label>Nombre</label><input type="text" id="npName" value="'+p.name+'"></div>'+
+    '<div class="form-field"><label>Nombre de la carta</label><input type="text" id="npName" value="'+p.name+'"></div>'+
+    '<div class="form-field"><label>Jugador real (para que no se repita en el draft)</label>'+
+      '<input type="text" id="npPerson" list="personsList" value="'+(p.person||p.name)+'">'+
+      personDatalist()+
+      '<div class="hint" style="text-align:left;margin:4px 0 0;">Si dos cartas tienen el mismo nombre acá, nunca van a poder estar juntas en el mismo equipo.</div>'+
+    '</div>'+
     '<div class="form-field"><label>Media</label><input type="number" id="npRating" min="1" max="99" value="'+p.rating+'"></div>'+
     '<div class="form-field"><label>Tipo de carta</label><select id="npTier">'+tierOptions+'</select></div>'+
     '<div class="form-field"><label>Posición natural</label><select id="npPrimary">'+posOptions+'</select></div>'+
@@ -1194,11 +1242,11 @@ function renderPicker(){
   const slot = state.slots.find(s=>s.id===state.activeSlotId);
   const opts = optionsFor(slot.role, slot.id);
   const cards = opts.map(p=>'<div class="card-wrap">'+fcCard(p, slot.role, {action:'assignSlot'})+'</div>').join('');
-  return '<div class="overlay" data-action="closeSheetBg">'+
-    '<div class="sheet" onclick="event.stopPropagation()">'+
+  return '<div class="overlay overlay-forced">'+
+    '<div class="sheet sheet-forced">'+
       '<div class="sheet-title">Elegí tu '+slot.role+'</div>'+
       '<div class="opt-row">'+cards+'</div>'+
-      '<button class="close-sheet" data-action="closeSheet">Cancelar</button>'+
+      '<p class="hint">Tenés que elegir uno para seguir</p>'+
     '</div>'+
   '</div>';
 }
@@ -1206,11 +1254,11 @@ function renderPicker(){
 function renderBenchPicker(){
   const opts = optionsForBench(state.activeBenchIndex);
   const cards = opts.map(p=>'<div class="card-wrap">'+fcCard(p, p.positions[0], {action:'assignBench'})+'</div>').join('');
-  return '<div class="overlay" data-action="closeBenchSheetBg">'+
-    '<div class="sheet" onclick="event.stopPropagation()">'+
+  return '<div class="overlay overlay-forced">'+
+    '<div class="sheet sheet-forced">'+
       '<div class="sheet-title">Elegí tu suplente</div>'+
       '<div class="opt-row">'+cards+'</div>'+
-      '<button class="close-sheet" data-action="closeBenchSheet">Cancelar</button>'+
+      '<p class="hint">Tenés que elegir uno para seguir</p>'+
     '</div>'+
   '</div>';
 }
@@ -1270,7 +1318,9 @@ const handlers = {
       return;
     }
     const positions = [primary].concat(extras.filter(x=>x!==primary));
-    const updated = Object.assign({}, p, {name, rating, tier, positions});
+    const personInput = document.getElementById('npPerson').value.trim();
+    const person = personInput || name;
+    const updated = Object.assign({}, p, {name, rating, tier, positions, person});
     if(pendingPhotoData) updated.photo = pendingPhotoData;
     const idx = POOL.findIndex(x=>x.id===p.id);
     POOL[idx] = updated;
@@ -1325,7 +1375,9 @@ const handlers = {
     const tier = tierSel==='auto' ? tierFromRating(rating) : tierSel;
     const positions = [primary].concat(extras.filter(p=>p!==primary));
     const id = 'custom_' + name.toLowerCase().replace(/[^a-z0-9]+/g,'') + '_' + Date.now().toString(36);
-    const player = {id, name, rating, tier, positions};
+    const personInput = document.getElementById('npPerson').value.trim();
+    const person = personInput || name;
+    const player = {id, name, rating, tier, positions, person};
     if(pendingPhotoData) player.photo = pendingPhotoData;
     POOL.push(player);
     saveOverride(player);
@@ -1334,7 +1386,7 @@ const handlers = {
     state.screen = 'home';
     render();
   },
-  backToHome(){ state.screen='home'; state.formation=null; state.captainId=null; state.slots=[]; state.bench=[]; state.selectedSlotId=null; state.selectedBenchId=null; state.savedAt=null; render(); },
+  backToHome(){ state.screen='home'; state.formation=null; state.captainId=null; state.slots=[]; state.bench=[]; state.activeSlotId=null; state.activeBenchIndex=null; state.selectedSlotId=null; state.selectedBenchId=null; state.savedAt=null; render(); },
   pickFormation(el){
     state.formation = el.getAttribute('data-formation');
     state.captainCandidates = pickCaptainCandidates(state.formation).map(p=>p.id);
@@ -1351,10 +1403,16 @@ const handlers = {
     const target = state.slots.find(s=>s.role===primaryRole && !s.playerId);
     if(target) target.playerId = id;
     state.bench = [null, null, null];
+    // Por si quedó algo colgado de una sesión de draft anterior (picker
+    // abierto, selección de swap) — arranca siempre en limpio.
+    state.activeSlotId = null;
+    state.activeBenchIndex = null;
+    state.selectedSlotId = null;
+    state.selectedBenchId = null;
     state.screen = 'pitch';
     render();
   },
-  backToCaptain(){ state.screen='captain'; state.slots=[]; state.bench=[]; state.selectedSlotId=null; state.selectedBenchId=null; state.captainId=null; render(); },
+  backToCaptain(){ state.screen='captain'; state.slots=[]; state.bench=[]; state.activeSlotId=null; state.activeBenchIndex=null; state.selectedSlotId=null; state.selectedBenchId=null; state.captainId=null; render(); },
   openSlot(el){
     const slotId = el.getAttribute('data-slot-id');
     const slot = state.slots.find(s=>s.id===slotId);
@@ -1449,8 +1507,6 @@ const handlers = {
     state.savedAt = null;
     render();
   },
-  closeSheet(){ state.activeSlotId = null; render(); },
-  closeSheetBg(){ state.activeSlotId = null; render(); },
   openBenchSlot(el){ state.activeBenchIndex = parseInt(el.getAttribute('data-bench-index'), 10); render(); },
   assignBench(el){
     const id = el.getAttribute('data-id');
@@ -1459,8 +1515,6 @@ const handlers = {
     state.savedAt = null;
     render();
   },
-  closeBenchSheet(){ state.activeBenchIndex = null; render(); },
-  closeBenchSheetBg(){ state.activeBenchIndex = null; render(); },
   toggleSubs(){ state.subsOpen = !state.subsOpen; render(); },
   saveTeam(){
     const team = currentTeamSnapshot();
