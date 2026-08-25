@@ -183,6 +183,7 @@ header{display:flex;align-items:center;gap:12px;margin-bottom:26px;}
 .sbc-row-name{font-family:'Anton',sans-serif;font-size:19px;letter-spacing:.5px;color:#f0e6cc;line-height:1.2;}
 .sbc-row-progress{font-size:12px;color:var(--gold-light);margin-top:4px;font-weight:700;letter-spacing:.5px;}
 .sbc-card-placeholder{width:64px;aspect-ratio:0.72;flex:none;clip-path:polygon(50% 0%,88% 6%,100% 20%,100% 92%,90% 100%,10% 100%,0% 92%,0% 20%,12% 6%);background:linear-gradient(160deg,#2b2b2b,#0a0a0a);border:2px solid rgba(232,197,101,.3);display:flex;align-items:center;justify-content:center;}
+.sbc-row-card{flex:none;transform:scale(.68);margin:0 -14px;}
 .sbc-card-placeholder span{font-family:'Anton',sans-serif;font-size:26px;color:rgba(232,197,101,.5);}
 
 .template-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border-radius:12px;border:1px solid rgba(232,197,101,.2);background:#171209;margin-bottom:10px;cursor:pointer;}
@@ -290,6 +291,16 @@ footer{margin-top:auto;padding-top:22px;text-align:center;font-size:9.5px;letter
 .tier-tots .fc-name{color:#052229;}
 .fc-inner.tier-balondeoro{background:linear-gradient(160deg,#050608 0%,#0e2c52 40%,#050608 70%,var(--gold) 92%,var(--gold-light) 100%);color:#fff4dd;}
 .tier-balondeoro .fc-name{color:#fff;}
+.fc-inner.tier-sbc{background:linear-gradient(115deg,
+  #c4202f 0%, #c4202f 43%,
+  #0a0a0a 45%, #7a5f1a 48%, #e8c565 50%, #7a5f1a 52%, #0a0a0a 55%,
+  #1c3f9a 57%, #1c3f9a 100%);color:#fff;}
+.tier-sbc .fc-name{color:#fff;}
+.fc-inner.tier-sbcnominated{background:linear-gradient(115deg,
+  #6e242c 0%, #6e242c 43%,
+  #0a0a0a 45%, #0a0a0a 55%,
+  #223a6b 57%, #223a6b 100%);color:#e8e0d0;}
+.tier-sbcnominated .fc-name{color:#e8e0d0;}
 
 /* ===== PITCH SCREEN ===== */
 .stat-bar{display:flex;gap:10px;margin-bottom:16px;}
@@ -674,6 +685,31 @@ function templateById(sbcId, templateId){
   return sbc ? sbc.templates.find(t=>t.id===templateId) : null;
 }
 
+// Qué carta se muestra como recompensa de cada SBC (reemplaza el "?" de la
+// lista una vez que se crea/vincula la carta real desde Añadir/Editar jugador).
+const SBC_REWARD_KEY = 'futdjm_sbc_reward_cards';
+function getSbcRewardCards(){
+  try{ return JSON.parse(localStorage.getItem(SBC_REWARD_KEY)) || {}; }catch(e){ return {}; }
+}
+function saveSbcRewardCards(m){ localStorage.setItem(SBC_REWARD_KEY, JSON.stringify(m)); }
+function linkCardToSbc(playerId, sbcId){
+  const map = getSbcRewardCards();
+  Object.keys(map).forEach(k=>{ if(map[k]===playerId) delete map[k]; });
+  if(sbcId) map[sbcId] = playerId;
+  saveSbcRewardCards(map);
+}
+function sbcLinkedTo(playerId){
+  const map = getSbcRewardCards();
+  return Object.keys(map).find(sbcId=>map[sbcId]===playerId) || '';
+}
+function sbcOptionsHtml(selectedSbcId){
+  let html = '<option value="">Ninguno</option>';
+  SBC_CATALOG.forEach(sbc=>{
+    html += '<option value="'+sbc.id+'"'+(sbc.id===selectedSbcId?' selected':'')+'>'+sbc.name+'</option>';
+  });
+  return html;
+}
+
 const SBC_PROGRESS_KEY = 'futdjm_sbc_progress';
 function getSbcProgress(){
   try{ return JSON.parse(localStorage.getItem(SBC_PROGRESS_KEY)) || {}; }catch(e){ return {}; }
@@ -772,11 +808,12 @@ function pickPackPlayer(probs){
     const tryIdx = [bandIdx-offset, bandIdx+offset].filter(i=>i>=0 && i<RATING_BANDS.length);
     for(const i of tryIdx){
       const band = RATING_BANDS[i];
-      candidates = POOL.filter(p=>p.rating>=band.min && p.rating<=band.max);
+      candidates = POOL.filter(p=>p.rating>=band.min && p.rating<=band.max && p.packEligible!==false);
       if(candidates.length) break;
     }
     offset++;
   }
+  if(candidates.length===0) candidates = POOL.filter(p=>p.packEligible!==false);
   if(candidates.length===0) candidates = POOL;
   return candidates[Math.floor(Math.random()*candidates.length)];
 }
@@ -977,10 +1014,13 @@ const TIER_GRADIENT_STOPS = {
   futurestar:['#03211d','#1f9b7f','#9dffe0'], icono:['#6e5717','#f7efd9','#fffef9','#ffffff'],
   parche:['#4a0d13','#93202b','#cf7982'], 'parche-estrella':['#4a0d13','#93202b','#b5922e','#e8c565'],
   tots:['#073540','#1c93ab','#7fe0d8','#e8c565'], balondeoro:['#050608','#0e2c52','#050608','#b5922e','#e8c565'],
+  sbc:['#c4202f','#0a0a0a','#e8c565','#0a0a0a','#1c3f9a'],
+  sbcnominated:['#6e242c','#0a0a0a','#0a0a0a','#223a6b'],
 };
 const TIER_TEXT_COLOR = {
   plata:'#141619', oro:'#241300', ororaro:'#241300', icono:'#2c2005', tots:'#052229',
-  if:'#ffffff', mvp:'#ffffff', shapeshifter:'#ffffff', futurestar:'#ffffff', parche:'#ffffff', 'parche-estrella':'#ffffff', balondeoro:'#ffffff'
+  if:'#ffffff', mvp:'#ffffff', shapeshifter:'#ffffff', futurestar:'#ffffff', parche:'#ffffff', 'parche-estrella':'#ffffff', balondeoro:'#ffffff',
+  sbc:'#ffffff', sbcnominated:'#e8e0d0'
 };
 function tierGradient(ctx, x0,y0,x1,y1, tier){
   const stops = TIER_GRADIENT_STOPS[tier] || TIER_GRADIENT_STOPS.oro;
@@ -1286,6 +1326,8 @@ const TIER_OPTIONS = [
   {value:'shapeshifter', label:'Shapeshifter'},
   {value:'tots', label:'TOTS'},
   {value:'balondeoro', label:'Balón de Oro'},
+  {value:'sbc', label:'SBC'},
+  {value:'sbcnominated', label:'SBC Nominated'},
 ];
 function tierFromRating(rating){
   if(rating>=80) return 'ororaro';
@@ -1316,6 +1358,8 @@ function renderAddPlayerScreen(){
     '<div class="form-field"><label>Posición natural</label><select id="npPrimary">'+posOptions+'</select></div>'+
     '<div class="form-field"><label>Posiciones extra</label><div class="chk-grid">'+extraChecks+'</div></div>'+
     '<div class="form-field"><label>Foto (opcional)</label><input type="file" accept="image/*" id="npPhoto" data-onchange="photoSelected"></div>'+
+    '<div class="form-field"><label>SBC — mostrar esta carta como recompensa de</label><select id="npSbc">'+sbcOptionsHtml('')+'</select></div>'+
+    '<div class="form-field"><label class="chk-row" style="justify-content:flex-start;gap:8px;"><input type="checkbox" id="npPacks" checked> PACKS — puede salir en sobres</label></div>'+
     '<button class="save-btn" data-action="submitPlayer" style="width:100%;">Guardar jugador</button>'+
     '<button class="admin-link-btn" data-action="goToEditList" type="button">Editar jugadores existentes</button>'+
     (state.addPlayerMsg ? '<p class="hint" style="color:var(--gold-light);margin-top:12px;">'+state.addPlayerMsg+'</p>' : '');
@@ -1364,7 +1408,7 @@ function renderCoinBadge(){
   return '<div class="coin-badge"><span class="coin-icon"><img src="'+CREST_DATA+'"></span>'+getCoins().toLocaleString('es-CL')+' ÑUENDE COINS</div>';
 }
 function renderConfetti(tier){
-  const colors = {plata:'#c3c8cf', oro:'#e8c565', ororaro:'#e2a223', if:'#9c7fe0', mvp:'#ff8f4a', shapeshifter:'#7b5cff', icono:'#fffef9', parche:'#cf7982', 'parche-estrella':'#e8c565', tots:'#4fd3e8', balondeoro:'#3a6bb0'};
+  const colors = {plata:'#c3c8cf', oro:'#e8c565', ororaro:'#e2a223', if:'#9c7fe0', mvp:'#ff8f4a', shapeshifter:'#7b5cff', icono:'#fffef9', parche:'#cf7982', 'parche-estrella':'#e8c565', tots:'#4fd3e8', balondeoro:'#3a6bb0', sbc:'#c4202f', sbcnominated:'#223a6b'};
   const c = colors[tier] || '#e8c565';
   let pieces = '';
   for(let i=0;i<28;i++){
@@ -1565,15 +1609,20 @@ function renderMarketPicker(){
 
 /* ---------- SBCs ---------- */
 function renderSbcListScreen(){
+  const rewardMap = getSbcRewardCards();
   const rows = SBC_CATALOG.map(sbc=>{
     const done = sbcCompletedCount(sbc);
     const total = sbc.templates.length;
+    const linkedPlayer = rewardMap[sbc.id] ? byId(rewardMap[sbc.id]) : null;
+    const cardHtml = linkedPlayer
+      ? '<div class="card-wrap sbc-row-card">'+fcCard(linkedPlayer, linkedPlayer.positions[0], {action:''})+'</div>'
+      : '<div class="sbc-card-placeholder"><span>?</span></div>';
     return '<div class="sbc-row" data-action="goToSbcTemplates" data-sbc-id="'+sbc.id+'">'+
       '<div class="sbc-row-info">'+
         '<div class="sbc-row-name">'+sbc.name+'</div>'+
         '<div class="sbc-row-progress">'+done+'/'+total+'</div>'+
       '</div>'+
-      '<div class="sbc-card-placeholder"><span>?</span></div>'+
+      cardHtml+
     '</div>';
   }).join('');
   return '<button class="back-btn" data-action="backToHome">‹ Inicio</button>'+
@@ -1701,6 +1750,8 @@ function renderEditPlayerFormScreen(){
     '<div class="form-field"><label>Posición natural</label><select id="npPrimary">'+posOptions+'</select></div>'+
     '<div class="form-field"><label>Posiciones extra</label><div class="chk-grid">'+extraChecks+'</div></div>'+
     '<div class="form-field"><label>Foto '+(p.photo?'(ya tiene una — subí otra para reemplazarla)':'(opcional)')+'</label><input type="file" accept="image/*" id="npPhoto" data-onchange="photoSelected"></div>'+
+    '<div class="form-field"><label>SBC — mostrar esta carta como recompensa de</label><select id="npSbc">'+sbcOptionsHtml(sbcLinkedTo(p.id))+'</select></div>'+
+    '<div class="form-field"><label class="chk-row" style="justify-content:flex-start;gap:8px;"><input type="checkbox" id="npPacks" '+(p.packEligible===false?'':'checked')+'> PACKS — puede salir en sobres</label></div>'+
     '<button class="save-btn" data-action="submitPlayerEdit" style="width:100%;">Guardar cambios</button>'+
     '<button class="danger-btn" data-action="deletePlayer" data-id="'+p.id+'">Eliminar jugador</button>'+
     (state.addPlayerMsg ? '<p class="hint" style="color:var(--gold-light);margin-top:12px;">'+state.addPlayerMsg+'</p>' : '');
@@ -1885,11 +1936,14 @@ const handlers = {
     const positions = [primary].concat(extras.filter(x=>x!==primary));
     const personInput = document.getElementById('npPerson').value.trim();
     const person = personInput || name;
-    const updated = Object.assign({}, p, {name, rating, tier, positions, person});
+    const packEligible = document.getElementById('npPacks').checked;
+    const updated = Object.assign({}, p, {name, rating, tier, positions, person, packEligible});
     if(pendingPhotoData) updated.photo = pendingPhotoData;
     const idx = POOL.findIndex(x=>x.id===p.id);
     POOL[idx] = updated;
     saveOverride(updated);
+    const sbcSel = document.getElementById('npSbc').value;
+    linkCardToSbc(p.id, sbcSel);
     pendingPhotoData = null;
     state.addPlayerMsg = null;
     state.screen = 'editlist';
@@ -1942,10 +1996,13 @@ const handlers = {
     const id = 'custom_' + name.toLowerCase().replace(/[^a-z0-9]+/g,'') + '_' + Date.now().toString(36);
     const personInput = document.getElementById('npPerson').value.trim();
     const person = personInput || name;
-    const player = {id, name, rating, tier, positions, person};
+    const packEligible = document.getElementById('npPacks').checked;
+    const player = {id, name, rating, tier, positions, person, packEligible};
     if(pendingPhotoData) player.photo = pendingPhotoData;
     POOL.push(player);
     saveOverride(player);
+    const sbcSel = document.getElementById('npSbc').value;
+    linkCardToSbc(id, sbcSel);
     pendingPhotoData = null;
     state.addPlayerMsg = null;
     state.screen = 'home';
